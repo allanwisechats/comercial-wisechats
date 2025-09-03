@@ -64,664 +64,440 @@ const Index = () => {
   if (!user) {
     return null;
   }
-  // States for Version 1
-  const [inputText, setInputText] = useState("");
-  const [contacts, setContacts] = useState<Contact[]>([]);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [currentPageV1, setCurrentPageV1] = useState(1);
-  
-  // States for Version 2
-  const [nicho, setNicho] = useState("");
-  const [cidade, setCidade] = useState("");
-  const [contactsV2, setContactsV2] = useState<Contact[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
-  const [currentPageV2, setCurrentPageV2] = useState(1);
-  
-  // Constants for pagination
-  const ITEMS_PER_PAGE = 100;
 
-  const processText = () => {
-    if (!inputText.trim()) return;
-    
-    setIsProcessing(true);
-    
+  const [inputText, setInputText] = useState('');
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [filteredContacts, setFilteredContacts] = useState<Contact[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 100;
+
+  const handleSignOut = async () => {
     try {
-      const extractedContacts: Contact[] = [];
-      const lines = inputText.split('\n');
-      
-      // Regex patterns para extrair informações
-      const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
-      const nameRegex = /^[A-ZÁÉÍÓÚÂÊÎÔÛÀÈÌÒÙÃÕÇ][a-záéíóúâêîôûàèìòùãõç]+(?:\s+[A-ZÁÉÍÓÚÂÊÎÔÛÀÈÌÒÙÃÕÇ][a-záéíóúâêîôûàèìòùãõç]+)*$/;
-      const whatsappRegex = /(?:\+55\s?)?(?:\(?0?\d{2}\)?\s?)?(?:9\s?)?[6-9]\d{3}[-\s]?\d{4}/g;
-      
-      // Regex para cidades brasileiras comuns
-      const cidadeRegex = /\b(?:São Paulo|Rio de Janeiro|Belo Horizonte|Salvador|Brasília|Fortaleza|Manaus|Curitiba|Recife|Goiânia|Belém|Porto Alegre|Guarulhos|Campinas|São Luís|Maceió|Duque de Caxias|Natal|Teresina|Campo Grande|São Bernardo do Campo|Nova Iguaçu|João Pessoa|Santo André|São José dos Campos|Ribeirão Preto|Uberlândia|Sorocaba|Contagem|Aracaju|Feira de Santana|Cuiabá|Joinville|Juiz de Fora|Londrina|Aparecida de Goiânia|Niterói|Ananindeua|Porto Velho|Serra|Caxias do Sul|Vila Velha|Florianópolis|Macapá|Campos dos Goytacazes|São José do Rio Preto|Mauá|Carapicuíba|Olinda|Campina Grande|São José dos Pinhais|Mogi das Cruzes|Betim|Diadema|Jundiaí|Piracicaba|Cariacica|Bauru|Montes Claros|Canoas|Pelotas|Anápolis|Maringá|São Carlos|Petrolina|Praia Grande|Franca|Ponta Grossa|Foz do Iguaçu|Santa Maria|Blumenau|Vitória|Paulista|Limeira|Uberaba|Suzano|Caucaia|Governador Valadares|Volta Redonda|Santos|Petrópolis|Taboão da Serra|Caruaru|Guarujá|Magé|Taubaté|Marília|São Vicente|Mossoró|Viçosa|Rio Branco|Boa Vista|Americana)\b/gi;
-      
-      // Cargos comuns (expandir conforme necessário)
-      const cargoPatterns = [
-        /\b(?:diretor|diretora|CEO|CTO|CFO|COO|gerente|coordenador|coordenadora|supervisor|supervisora|analista|especialista|consultor|consultora|assistente|desenvolvedor|desenvolvedora|programador|programadora|designer|arquiteto|arquiteta|engenheiro|engenheira|vendedor|vendedora|representante|executivo|executiva)\b/gi
-      ];
-      
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i].trim();
-        if (!line) continue;
-        
-        const emails = line.match(emailRegex) || [];
-        
-        if (emails.length > 0) {
-          // Procura informações nas linhas anteriores e posteriores
-          let nome = "";
-          let cargo = "";
-          let empresa = "";
-          let whatsapp = "";
-          let cidade = "";
-          let linhasUsadas: string[] = [];
-          
-          // Busca informações nas linhas próximas
-          for (let j = Math.max(0, i - 5); j <= Math.min(lines.length - 1, i + 5); j++) {
-            const nearLine = lines[j].trim();
-            
-            // Adiciona linha ao contexto se tiver conteúdo relevante
-            if (nearLine.length > 3) {
-              linhasUsadas.push(nearLine);
-            }
-            
-            // Tenta extrair nome
-            if (!nome && nameRegex.test(nearLine) && nearLine.length < 50) {
-              nome = nearLine;
-            }
-            
-            // Tenta extrair cargo
-            if (!cargo) {
-              for (const pattern of cargoPatterns) {
-                const matches = nearLine.match(pattern);
-                if (matches) {
-                  cargo = matches[0];
-                  break;
-                }
-              }
-            }
-            
-            // Tenta extrair WhatsApp
-            if (!whatsapp) {
-              const whatsappMatches = nearLine.match(whatsappRegex);
-              if (whatsappMatches) {
-                whatsapp = whatsappMatches[0];
-              }
-            }
-            
-            // Tenta extrair cidade
-            if (!cidade) {
-              const cidadeMatches = nearLine.match(cidadeRegex);
-              if (cidadeMatches) {
-                cidade = cidadeMatches[0];
-              }
-            }
-            
-            // Nova lógica para empresa: primeira frase próxima ao email (sem regex específico)
-            if (!empresa && nearLine.length > 5 && nearLine.length < 80 && 
-                !emailRegex.test(nearLine) && !whatsappRegex.test(nearLine) &&
-                !nameRegex.test(nearLine) && j !== i) {
-              // Verifica se não é um cargo
-              let isCargo = false;
-              for (const pattern of cargoPatterns) {
-                if (pattern.test(nearLine)) {
-                  isCargo = true;
-                  break;
-                }
-              }
-              if (!isCargo) {
-                empresa = nearLine;
-              }
-            }
-          }
-          
-          // Se não encontrou empresa, tenta pegar domínio do email
-          if (!empresa && emails[0]) {
-            const domain = emails[0].split('@')[1];
-            empresa = domain.split('.')[0];
-          }
-          
-          extractedContacts.push({
-            nome: nome || "",
-            cargo: cargo || "Cargo não identificado", 
-            email: emails[0],
-            empresa: empresa || "Empresa não identificada",
-            whatsapp: whatsapp || "Não informado",
-            cidade: cidade || "Cidade não identificada",
-            textoOriginal: linhasUsadas.join(" | ")
-          });
-        }
-      }
-      
-      // Remove duplicatas baseado no email
-      const uniqueContacts = extractedContacts.filter((contact, index, self) => 
-        index === self.findIndex(c => c.email === contact.email)
-      );
-      
-      setContacts(uniqueContacts);
+      await signOut();
+      toast.success('Logout realizado com sucesso!');
+      navigate('/auth');
     } catch (error) {
-      console.error("Erro ao processar texto:", error);
-    } finally {
-      setIsProcessing(false);
+      toast.error('Erro ao fazer logout');
     }
   };
 
-  const clearData = () => {
-    setInputText("");
-    setContacts([]);
-  };
-
-  const searchGoogleContacts = async () => {
-    if (!nicho.trim() || !cidade.trim()) return;
+  const extractContacts = (text: string): Contact[] => {
+    const contacts: Contact[] = [];
     
-    setIsSearching(true);
-    setContactsV2([]);
+    // Split by double newlines or multiple spaces to get individual entries
+    const entries = text.split(/\n\s*\n|\t\t+/).filter(entry => entry.trim());
     
-    try {
-      const query = `site:casadosdados.com.br+"${nicho}"+("@gmail.com"+OR+"@yahoo.com"+OR+"@hotmail.com"+OR+"@outlook.com"+OR+"@aol.com"+OR+"@icloud.com")+AND+${cidade}`;
-      const googleUrl = `https://www.google.com/search?q=${encodeURIComponent(query)}&num=100`;
+    entries.forEach(entry => {
+      const lines = entry.split('\n').map(line => line.trim()).filter(line => line);
       
-      console.log("Fazendo busca no Google:", googleUrl);
+      if (lines.length === 0) return;
       
-      // Fazer scrapping real da página do Google
-      const response = await fetch('/api/scrape-google', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ url: googleUrl })
+      const contact: Contact = {
+        nome: '',
+        cargo: '',
+        email: '',
+        empresa: '',
+        whatsapp: '',
+        cidade: '',
+        textoOriginal: entry.trim()
+      };
+      
+      lines.forEach(line => {
+        const lowerLine = line.toLowerCase();
+        
+        // Try to extract email
+        const emailMatch = line.match(/[\w\.-]+@[\w\.-]+\.\w+/);
+        if (emailMatch && !contact.email) {
+          contact.email = emailMatch[0];
+        }
+        
+        // Try to extract WhatsApp
+        const whatsappMatch = line.match(/\+?[\d\s\(\)-]{10,20}/);
+        if (whatsappMatch && !contact.whatsapp) {
+          contact.whatsapp = whatsappMatch[0].trim();
+        }
+        
+        // Try to identify positions/job titles
+        const cargoKeywords = ['diretor', 'gerente', 'coordenador', 'supervisor', 'analista', 'assistente', 'consultor', 'especialista', 'líder', 'head', 'manager', 'ceo', 'cto', 'cfo'];
+        if (cargoKeywords.some(keyword => lowerLine.includes(keyword)) && !contact.cargo) {
+          contact.cargo = line;
+        }
+        
+        // If no specific pattern is found and we don't have a name yet, assume first non-email/phone line is name
+        if (!contact.nome && !emailMatch && !whatsappMatch && line.length > 3) {
+          contact.nome = line;
+        }
       });
       
-      if (!response.ok) {
-        throw new Error('Erro ao fazer scrapping');
+      // If we still don't have a name, use the first line
+      if (!contact.nome && lines.length > 0) {
+        contact.nome = lines[0];
       }
       
-      const data = await response.text();
-      
-      // Processar o conteúdo HTML retornado
-      const extractedContacts = extractContactsFromHTML(data);
-      setContactsV2(extractedContacts);
-      
-    } catch (error) {
-      console.error("Erro ao buscar contatos:", error);
-      // Fallback para uma implementação básica usando fetch direto
+      // Only add contact if we have at least a name or email or phone
+      if (contact.nome || contact.email || contact.whatsapp) {
+        contacts.push(contact);
+      }
+    });
+    
+    return contacts;
+  };
+
+  const handleExtract = () => {
+    if (!inputText.trim()) {
+      toast.error('Por favor, insira o texto para extrair os leads');
+      return;
+    }
+
+    if (inputText.length > 100000) {
+      toast.error('Texto muito longo. Máximo de 100.000 caracteres.');
+      return;
+    }
+
+    setIsProcessing(true);
+    
+    setTimeout(() => {
       try {
-        const query = `site:casadosdados.com.br+"${nicho}"+("@gmail.com"+OR+"@yahoo.com"+OR+"@hotmail.com"+OR+"@outlook.com"+OR+"@aol.com"+OR+"@icloud.com")+AND+${cidade}`;
-        const googleUrl = `https://www.google.com/search?q=${encodeURIComponent(query)}&num=100`;
+        const extractedContacts = extractContacts(inputText);
         
-        const proxyResponse = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(googleUrl)}`);
-        const proxyData = await proxyResponse.json();
-        
-        if (proxyData.contents) {
-          const extractedContacts = extractContactsFromHTML(proxyData.contents);
-          setContactsV2(extractedContacts);
+        if (extractedContacts.length === 0) {
+          toast.error('Nenhum lead encontrado no texto');
+        } else {
+          setContacts(extractedContacts);
+          setFilteredContacts(extractedContacts);
+          setCurrentPage(1);
+          toast.success(`${extractedContacts.length} leads extraídos com sucesso!`);
         }
-      } catch (fallbackError) {
-        console.error("Erro no fallback:", fallbackError);
+      } catch (error) {
+        toast.error('Erro ao processar o texto');
+      } finally {
+        setIsProcessing(false);
       }
-    } finally {
-      setIsSearching(false);
+    }, 1000);
+  };
+
+  const handleSearch = (term: string) => {
+    setSearchTerm(term);
+    if (!term.trim()) {
+      setFilteredContacts(contacts);
+    } else {
+      const filtered = contacts.filter(contact => 
+        Object.values(contact).some(value => 
+          value.toLowerCase().includes(term.toLowerCase())
+        )
+      );
+      setFilteredContacts(filtered);
     }
+    setCurrentPage(1);
   };
 
-  const extractContactsFromHTML = (html: string): Contact[] => {
-    // Usar a mesma lógica de extração da versão 1
-    const extractedContacts: Contact[] = [];
-    const lines = html.split('\n');
-    
-    // Reutilizar as mesmas regex patterns
-    const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
-    const nameRegex = /^[A-ZÁÉÍÓÚÂÊÎÔÛÀÈÌÒÙÃÕÇ][a-záéíóúâêîôûàèìòùãõç]+(?:\s+[A-ZÁÉÍÓÚÂÊÎÔÛÀÈÌÒÙÃÕÇ][a-záéíóúâêîôûàèìòùãõç]+)*$/;
-    const whatsappRegex = /(?:\+55\s?)?(?:\(?0?\d{2}\)?\s?)?(?:9\s?)?[6-9]\d{3}[-\s]?\d{4}/g;
-    const cidadeRegex = /\b(?:São Paulo|Rio de Janeiro|Belo Horizonte|Salvador|Brasília|Fortaleza|Manaus|Curitiba|Recife|Goiânia|Belém|Porto Alegre|Guarulhos|Campinas|São Luís|Maceió|Duque de Caxias|Natal|Teresina|Campo Grande|São Bernardo do Campo|Nova Iguaçu|João Pessoa|Santo André|São José dos Campos|Ribeirão Preto|Uberlândia|Sorocaba|Contagem|Aracaju|Feira de Santana|Cuiabá|Joinville|Juiz de Fora|Londrina|Aparecida de Goiânia|Niterói|Ananindeua|Porto Velho|Serra|Caxias do Sul|Vila Velha|Florianópolis|Macapá|Campos dos Goytacazes|São José do Rio Preto|Mauá|Carapicuíba|Olinda|Campina Grande|São José dos Pinhais|Mogi das Cruzes|Betim|Diadema|Jundiaí|Piracicaba|Cariacica|Bauru|Montes Claros|Canoas|Pelotas|Anápolis|Maringá|São Carlos|Petrolina|Praia Grande|Franca|Ponta Grossa|Foz do Iguaçu|Santa Maria|Blumenau|Vitória|Paulista|Limeira|Uberaba|Suzano|Caucaia|Governador Valadares|Volta Redonda|Santos|Petrópolis|Taboão da Serra|Caruaru|Guarujá|Magé|Taubaté|Marília|São Vicente|Mossoró|Viçosa|Rio Branco|Boa Vista|Americana)\b/gi;
-    const cargoPatterns = [
-      /\b(?:diretor|diretora|CEO|CTO|CFO|COO|gerente|coordenador|coordenadora|supervisor|supervisora|analista|especialista|consultor|consultora|assistente|desenvolvedor|desenvolvedora|programador|programadora|designer|arquiteto|arquiteta|engenheiro|engenheira|vendedor|vendedora|representante|executivo|executiva)\b/gi
-    ];
-    
-    // Reutilizar a mesma lógica de extração
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].trim();
-      if (!line) continue;
-      
-      const emails = line.match(emailRegex) || [];
-      
-      if (emails.length > 0) {
-        let nome = "";
-        let cargo = "";
-        let empresa = "";
-        let whatsapp = "";
-        let cidade = "";
-        let linhasUsadas: string[] = [];
-        
-        for (let j = Math.max(0, i - 5); j <= Math.min(lines.length - 1, i + 5); j++) {
-          const nearLine = lines[j].trim();
-          
-          if (nearLine.length > 3) {
-            linhasUsadas.push(nearLine);
-          }
-          
-          if (!nome && nameRegex.test(nearLine) && nearLine.length < 50) {
-            nome = nearLine;
-          }
-          
-          if (!cargo) {
-            for (const pattern of cargoPatterns) {
-              const matches = nearLine.match(pattern);
-              if (matches) {
-                cargo = matches[0];
-                break;
-              }
-            }
-          }
-          
-          if (!whatsapp) {
-            const whatsappMatches = nearLine.match(whatsappRegex);
-            if (whatsappMatches) {
-              whatsapp = whatsappMatches[0];
-            }
-          }
-          
-          if (!cidade) {
-            const cidadeMatches = nearLine.match(cidadeRegex);
-            if (cidadeMatches) {
-              cidade = cidadeMatches[0];
-            }
-          }
-          
-          if (!empresa && nearLine.length > 5 && nearLine.length < 80 && 
-              !emailRegex.test(nearLine) && !whatsappRegex.test(nearLine) &&
-              !nameRegex.test(nearLine) && j !== i) {
-            let isCargo = false;
-            for (const pattern of cargoPatterns) {
-              if (pattern.test(nearLine)) {
-                isCargo = true;
-                break;
-              }
-            }
-            if (!isCargo) {
-              empresa = nearLine;
-            }
-          }
-        }
-        
-        if (!empresa && emails[0]) {
-          const domain = emails[0].split('@')[1];
-          empresa = domain.split('.')[0];
-        }
-        
-        extractedContacts.push({
-          nome: nome || "",
-          cargo: cargo || "Cargo não identificado", 
-          email: emails[0],
-          empresa: empresa || "Empresa não identificada",
-          whatsapp: whatsapp || "Não informado",
-          cidade: cidade || "Cidade não identificada",
-          textoOriginal: linhasUsadas.join(" | ")
-        });
-      }
+  const handleExport = () => {
+    if (filteredContacts.length === 0) {
+      toast.error('Nenhum lead para exportar');
+      return;
     }
-    
-    // Remove duplicatas
-    return extractedContacts.filter((contact, index, self) => 
-      index === self.findIndex(c => c.email === contact.email)
-    );
-  };
 
-  const clearDataV2 = () => {
-    setNicho("");
-    setCidade("");
-    setContactsV2([]);
-  };
-
-  const exportToCsv = () => {
-    if (contacts.length === 0) return;
-    
     const csvContent = [
-      "Nome,Cargo,Email,Empresa,WhatsApp,Cidade,Texto Original",
-      ...contacts.map(contact => 
-        `"${contact.nome}","${contact.cargo}","${contact.email}","${contact.empresa}","${contact.whatsapp}","${contact.cidade}","${contact.textoOriginal}"`
-      )
-    ].join('\n');
-    
+      ['#', 'Nome', 'Cargo', 'Email', 'Empresa', 'WhatsApp', 'Cidade'],
+      ...filteredContacts.map((contact, index) => [
+        index + 1,
+        contact.nome,
+        contact.cargo,
+        contact.email,
+        contact.empresa,
+        contact.whatsapp,
+        contact.cidade
+      ])
+    ].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
+
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = 'contatos_extraidos.csv';
+    link.download = 'leads_whatsapp.csv';
     link.click();
+    
+    toast.success('Leads exportados com sucesso!');
   };
 
-  const exportToCsvV2 = () => {
-    if (contactsV2.length === 0) return;
+  const clearContacts = () => {
+    setContacts([]);
+    setFilteredContacts([]);
+    setSearchTerm('');
+    setCurrentPage(1);
+    toast.success('Lista limpa com sucesso!');
+  };
+
+  // Pagination
+  const totalPages = Math.ceil(filteredContacts.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentContacts = filteredContacts.slice(startIndex, endIndex);
+
+  const renderPaginationItems = () => {
+    const items = [];
+    const maxVisible = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisible - 1);
     
-    const csvContent = [
-      "Nome,Cargo,Email,Empresa,WhatsApp,Cidade,Texto Original",
-      ...contactsV2.map(contact => 
-        `"${contact.nome}","${contact.cargo}","${contact.email}","${contact.empresa}","${contact.whatsapp}","${contact.cidade}","${contact.textoOriginal}"`
-      )
-    ].join('\n');
-    
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = 'contatos_busca_automatica.csv';
-    link.click();
+    if (endPage - startPage + 1 < maxVisible) {
+      startPage = Math.max(1, endPage - maxVisible + 1);
+    }
+
+    if (startPage > 1) {
+      items.push(
+        <PaginationItem key={1}>
+          <PaginationLink onClick={() => setCurrentPage(1)}>1</PaginationLink>
+        </PaginationItem>
+      );
+      if (startPage > 2) {
+        items.push(<PaginationEllipsis key="ellipsis1" />);
+      }
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+      items.push(
+        <PaginationItem key={i}>
+          <PaginationLink 
+            onClick={() => setCurrentPage(i)}
+            isActive={currentPage === i}
+          >
+            {i}
+          </PaginationLink>
+        </PaginationItem>
+      );
+    }
+
+    if (endPage < totalPages) {
+      if (endPage < totalPages - 1) {
+        items.push(<PaginationEllipsis key="ellipsis2" />);
+      }
+      items.push(
+        <PaginationItem key={totalPages}>
+          <PaginationLink onClick={() => setCurrentPage(totalPages)}>
+            {totalPages}
+          </PaginationLink>
+        </PaginationItem>
+      );
+    }
+
+    return items;
   };
 
   return (
-    <div className="min-h-screen bg-background p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
-        <div className="text-center">
-          <h1 className="text-4xl font-bold mb-2">Extrator de Contatos</h1>
-          <p className="text-xl text-muted-foreground">Extraia informações de contatos de diferentes formas</p>
-        </div>
-
-        <Tabs defaultValue="v1" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="v1" className="flex items-center gap-2">
-              <Search className="h-4 w-4" />
-              Versão 1 - Manual
-            </TabsTrigger>
-            <TabsTrigger value="v2" className="flex items-center gap-2">
-              <Globe className="h-4 w-4" />
-              Versão 2 - Automática
-            </TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="v1" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Search className="h-5 w-5" />
-                  Texto de Entrada
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <Textarea
-                  value={inputText}
-                  onChange={(e) => setInputText(e.target.value)}
-                  placeholder="Cole aqui o texto dos resultados da pesquisa do Google (até 100.000 caracteres)..."
-                  className="min-h-[200px] resize-none"
-                  maxLength={100000}
-                />
-                <div className="text-sm text-muted-foreground">
-                  {inputText.length}/100.000 caracteres
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8">
+      <div className="max-w-4xl mx-auto">
+        <Card className="mb-8">
+          <CardHeader>
+            <div className="flex justify-between items-center">
+              <CardTitle className="text-3xl font-bold text-gray-800">
+                Extrair Leads WhatsApp
+              </CardTitle>
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <User size={16} />
+                  <span>{user.email}</span>
                 </div>
-                <div className="flex gap-2">
-                  <Button 
-                    onClick={processText} 
-                    disabled={!inputText.trim() || isProcessing}
-                    className="flex items-center gap-2"
-                  >
-                    <Search className="h-4 w-4" />
-                    {isProcessing ? "Processando..." : "Extrair Contatos"}
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    onClick={clearData}
-                    className="flex items-center gap-2"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                    Limpar
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleSignOut}
+                  className="flex items-center gap-2"
+                >
+                  <LogOut size={16} />
+                  Sair
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <Tabs defaultValue="extract" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="extract">Extrair Leads</TabsTrigger>
+                <TabsTrigger value="results">
+                  Resultados {contacts.length > 0 && `(${contacts.length})`}
+                </TabsTrigger>
+              </TabsList>
 
-            {contacts.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="flex items-center gap-2">
-                      Contatos Extraídos
-                      <Badge variant="secondary">{contacts.length}</Badge>
-                    </CardTitle>
+              <TabsContent value="extract" className="space-y-6">
+                <div className="space-y-4">
+                  <div>
+                    <label htmlFor="input-text" className="text-sm font-medium text-gray-700 mb-2 block">
+                      Cole aqui o texto contendo os contatos do WhatsApp:
+                    </label>
+                    <Textarea
+                      id="input-text"
+                      placeholder="Cole aqui o texto com os contatos... (máximo 100.000 caracteres)"
+                      value={inputText}
+                      onChange={(e) => setInputText(e.target.value)}
+                      className="min-h-[300px] text-sm"
+                      maxLength={100000}
+                    />
+                    <div className="text-xs text-gray-500 mt-1">
+                      {inputText.length.toLocaleString()} / 100.000 caracteres
+                    </div>
+                  </div>
+
+                  <div className="flex gap-4">
                     <Button 
-                      onClick={exportToCsv}
-                      variant="outline"
-                      className="flex items-center gap-2"
+                      onClick={handleExtract}
+                      disabled={isProcessing || !inputText.trim()}
+                      className="bg-blue-600 hover:bg-blue-700"
                     >
-                      <Download className="h-4 w-4" />
-                      Exportar CSV
+                      {isProcessing ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                          Processando...
+                        </>
+                      ) : (
+                        'Extrair Leads'
+                      )}
+                    </Button>
+                    
+                    <Button
+                      variant="outline"
+                      onClick={() => setInputText('')}
+                      disabled={!inputText.trim()}
+                    >
+                      Limpar
                     </Button>
                   </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-16">#</TableHead>
-                          <TableHead>Nome do Contato</TableHead>
-                          <TableHead>Cargo</TableHead>
-                          <TableHead>Email</TableHead>
-                          <TableHead>Empresa</TableHead>
-                          <TableHead>WhatsApp</TableHead>
-                          <TableHead>Cidade</TableHead>
-                          <TableHead>Texto Original</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {contacts
-                          .slice((currentPageV1 - 1) * ITEMS_PER_PAGE, currentPageV1 * ITEMS_PER_PAGE)
-                          .map((contact, index) => (
-                          <TableRow key={index}>
-                            <TableCell className="font-mono text-muted-foreground">
-                              {(currentPageV1 - 1) * ITEMS_PER_PAGE + index + 1}
-                            </TableCell>
-                            <TableCell className="font-medium">{contact.nome || "-"}</TableCell>
-                            <TableCell>{contact.cargo}</TableCell>
-                            <TableCell>{contact.email}</TableCell>
-                            <TableCell>{contact.empresa}</TableCell>
-                            <TableCell>{contact.whatsapp}</TableCell>
-                            <TableCell>{contact.cidade}</TableCell>
-                            <TableCell className="max-w-xs truncate" title={contact.textoOriginal}>
-                              {contact.textoOriginal}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+                </div>
+
+                {contacts.length > 0 && (
+                  <div className="mt-8 p-4 bg-green-50 rounded-lg border border-green-200">
+                    <div className="flex items-center gap-2 text-green-800">
+                      <Globe className="w-5 h-5" />
+                      <span className="font-medium">
+                        {contacts.length} leads extraídos com sucesso!
+                      </span>
+                    </div>
+                    <p className="text-sm text-green-600 mt-1">
+                      Clique na aba "Resultados" para visualizar e exportar os dados.
+                    </p>
                   </div>
-                  {contacts.length > ITEMS_PER_PAGE && (
-                    <div className="mt-4">
+                )}
+              </TabsContent>
+
+              <TabsContent value="results" className="space-y-6">
+                {contacts.length === 0 ? (
+                  <div className="text-center py-12 text-gray-500">
+                    <Globe className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                    <p>Nenhum lead extraído ainda.</p>
+                    <p className="text-sm">Use a aba "Extrair Leads" para começar.</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                          <Input
+                            placeholder="Pesquisar leads..."
+                            value={searchTerm}
+                            onChange={(e) => handleSearch(e.target.value)}
+                            className="pl-10 w-64"
+                          />
+                        </div>
+                        <Badge variant="secondary" className="text-sm">
+                          {filteredContacts.length} leads encontrados
+                        </Badge>
+                      </div>
+
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={handleExport}
+                          disabled={filteredContacts.length === 0}
+                          variant="outline"
+                          size="sm"
+                          className="flex items-center gap-2"
+                        >
+                          <Download className="w-4 h-4" />
+                          Exportar CSV
+                        </Button>
+                        <Button
+                          onClick={clearContacts}
+                          variant="outline"
+                          size="sm"
+                          className="flex items-center gap-2 text-red-600 hover:text-red-700"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          Limpar
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="border rounded-lg overflow-hidden">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-gray-50">
+                            <TableHead className="w-12">#</TableHead>
+                            <TableHead>Nome</TableHead>
+                            <TableHead>Cargo</TableHead>
+                            <TableHead>Email</TableHead>
+                            <TableHead>Empresa</TableHead>
+                            <TableHead>WhatsApp</TableHead>
+                            <TableHead>Cidade</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {currentContacts.map((contact, index) => (
+                            <TableRow key={startIndex + index} className="hover:bg-gray-50">
+                              <TableCell className="font-mono text-xs text-gray-500">
+                                {startIndex + index + 1}
+                              </TableCell>
+                              <TableCell className="font-medium">
+                                {contact.nome || '-'}
+                              </TableCell>
+                              <TableCell className="text-sm text-gray-600">
+                                {contact.cargo || '-'}
+                              </TableCell>
+                              <TableCell className="text-sm">
+                                {contact.email || '-'}
+                              </TableCell>
+                              <TableCell className="text-sm text-gray-600">
+                                {contact.empresa || '-'}
+                              </TableCell>
+                              <TableCell className="text-sm font-mono">
+                                {contact.whatsapp || '-'}
+                              </TableCell>
+                              <TableCell className="text-sm text-gray-600">
+                                {contact.cidade || '-'}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+
+                    {totalPages > 1 && (
                       <Pagination>
                         <PaginationContent>
                           <PaginationItem>
                             <PaginationPrevious 
-                              onClick={() => setCurrentPageV1(Math.max(1, currentPageV1 - 1))}
-                              className={currentPageV1 === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                              onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                              className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
                             />
                           </PaginationItem>
-                          {Array.from({ length: Math.min(5, Math.ceil(contacts.length / ITEMS_PER_PAGE)) }, (_, i) => {
-                            const pageNumber = Math.max(1, currentPageV1 - 2) + i;
-                            if (pageNumber > Math.ceil(contacts.length / ITEMS_PER_PAGE)) return null;
-                            return (
-                              <PaginationItem key={pageNumber}>
-                                <PaginationLink 
-                                  onClick={() => setCurrentPageV1(pageNumber)}
-                                  isActive={currentPageV1 === pageNumber}
-                                  className="cursor-pointer"
-                                >
-                                  {pageNumber}
-                                </PaginationLink>
-                              </PaginationItem>
-                            );
-                          })}
-                          {Math.ceil(contacts.length / ITEMS_PER_PAGE) > currentPageV1 + 2 && (
-                            <PaginationItem>
-                              <PaginationEllipsis />
-                            </PaginationItem>
-                          )}
+                          
+                          {renderPaginationItems()}
+                          
                           <PaginationItem>
                             <PaginationNext 
-                              onClick={() => setCurrentPageV1(Math.min(Math.ceil(contacts.length / ITEMS_PER_PAGE), currentPageV1 + 1))}
-                              className={currentPageV1 === Math.ceil(contacts.length / ITEMS_PER_PAGE) ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                              onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                              className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
                             />
                           </PaginationItem>
                         </PaginationContent>
                       </Pagination>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
-          </TabsContent>
-
-          <TabsContent value="v2" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Globe className="h-5 w-5" />
-                  Busca Automática
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label htmlFor="nicho" className="text-sm font-medium">
-                      Nicho
-                    </label>
-                    <Input
-                      id="nicho"
-                      value={nicho}
-                      onChange={(e) => setNicho(e.target.value)}
-                      placeholder="ex: imobiliária"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label htmlFor="cidade" className="text-sm font-medium">
-                      Cidade
-                    </label>
-                    <Input
-                      id="cidade"
-                      value={cidade}
-                      onChange={(e) => setCidade(e.target.value)}
-                      placeholder="ex: Florianópolis"
-                    />
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <Button 
-                    onClick={searchGoogleContacts} 
-                    disabled={!nicho.trim() || !cidade.trim() || isSearching}
-                    className="flex items-center gap-2"
-                  >
-                    <Search className="h-4 w-4" />
-                    {isSearching ? "Buscando..." : "Buscar Contatos"}
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    onClick={clearDataV2}
-                    className="flex items-center gap-2"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                    Limpar
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            {contactsV2.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="flex items-center gap-2">
-                      Contatos Encontrados
-                      <Badge variant="secondary">{contactsV2.length}</Badge>
-                    </CardTitle>
-                    <Button 
-                      onClick={exportToCsvV2}
-                      variant="outline"
-                      className="flex items-center gap-2"
-                    >
-                      <Download className="h-4 w-4" />
-                      Exportar CSV
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-16">#</TableHead>
-                          <TableHead>Nome do Contato</TableHead>
-                          <TableHead>Cargo</TableHead>
-                          <TableHead>Email</TableHead>
-                          <TableHead>Empresa</TableHead>
-                          <TableHead>WhatsApp</TableHead>
-                          <TableHead>Cidade</TableHead>
-                          <TableHead>Texto Original</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {contactsV2
-                          .slice((currentPageV2 - 1) * ITEMS_PER_PAGE, currentPageV2 * ITEMS_PER_PAGE)
-                          .map((contact, index) => (
-                          <TableRow key={index}>
-                            <TableCell className="font-mono text-muted-foreground">
-                              {(currentPageV2 - 1) * ITEMS_PER_PAGE + index + 1}
-                            </TableCell>
-                            <TableCell className="font-medium">{contact.nome || "-"}</TableCell>
-                            <TableCell>{contact.cargo}</TableCell>
-                            <TableCell>{contact.email}</TableCell>
-                            <TableCell>{contact.empresa}</TableCell>
-                            <TableCell>{contact.whatsapp}</TableCell>
-                            <TableCell>{contact.cidade}</TableCell>
-                            <TableCell className="max-w-xs truncate" title={contact.textoOriginal}>
-                              {contact.textoOriginal}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                  {contactsV2.length > ITEMS_PER_PAGE && (
-                    <div className="mt-4">
-                      <Pagination>
-                        <PaginationContent>
-                          <PaginationItem>
-                            <PaginationPrevious 
-                              onClick={() => setCurrentPageV2(Math.max(1, currentPageV2 - 1))}
-                              className={currentPageV2 === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
-                            />
-                          </PaginationItem>
-                          {Array.from({ length: Math.min(5, Math.ceil(contactsV2.length / ITEMS_PER_PAGE)) }, (_, i) => {
-                            const pageNumber = Math.max(1, currentPageV2 - 2) + i;
-                            if (pageNumber > Math.ceil(contactsV2.length / ITEMS_PER_PAGE)) return null;
-                            return (
-                              <PaginationItem key={pageNumber}>
-                                <PaginationLink 
-                                  onClick={() => setCurrentPageV2(pageNumber)}
-                                  isActive={currentPageV2 === pageNumber}
-                                  className="cursor-pointer"
-                                >
-                                  {pageNumber}
-                                </PaginationLink>
-                              </PaginationItem>
-                            );
-                          })}
-                          {Math.ceil(contactsV2.length / ITEMS_PER_PAGE) > currentPageV2 + 2 && (
-                            <PaginationItem>
-                              <PaginationEllipsis />
-                            </PaginationItem>
-                          )}
-                          <PaginationItem>
-                            <PaginationNext 
-                              onClick={() => setCurrentPageV2(Math.min(Math.ceil(contactsV2.length / ITEMS_PER_PAGE), currentPageV2 + 1))}
-                              className={currentPageV2 === Math.ceil(contactsV2.length / ITEMS_PER_PAGE) ? "pointer-events-none opacity-50" : "cursor-pointer"}
-                            />
-                          </PaginationItem>
-                        </PaginationContent>
-                      </Pagination>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
-          </TabsContent>
-        </Tabs>
+                    )}
+                  </>
+                )}
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
