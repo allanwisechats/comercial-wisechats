@@ -53,8 +53,8 @@ const Contatos = () => {
   const [filteredContatos, setFilteredContatos] = useState<Contato[]>([]);
   const [nichos, setNichos] = useState<Nicho[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedNicho, setSelectedNicho] = useState('');
-  const [selectedFonte, setSelectedFonte] = useState('');
+  const [selectedNicho, setSelectedNicho] = useState('all');
+  const [selectedFonte, setSelectedFonte] = useState('all');
   const [isLoading, setIsLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 50;
@@ -129,12 +129,12 @@ const Contatos = () => {
     }
 
     // Filter by nicho
-    if (selectedNicho) {
+    if (selectedNicho && selectedNicho !== 'all') {
       filtered = filtered.filter(contato => contato.nicho_id === selectedNicho);
     }
 
     // Filter by fonte
-    if (selectedFonte) {
+    if (selectedFonte && selectedFonte !== 'all') {
       filtered = filtered.filter(contato => contato.fonte === selectedFonte);
     }
 
@@ -175,8 +175,8 @@ const Contatos = () => {
 
   const clearFilters = () => {
     setSearchTerm('');
-    setSelectedNicho('');
-    setSelectedFonte('');
+    setSelectedNicho('all');
+    setSelectedFonte('all');
   };
 
   // Pagination
@@ -273,7 +273,7 @@ const Contatos = () => {
                   <SelectValue placeholder="Filtrar por nicho" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todos os nichos</SelectItem>
+                  <SelectItem value="all">Todos os nichos</SelectItem>
                   {nichos.map((nicho) => (
                     <SelectItem key={nicho.id} value={nicho.id}>
                       {nicho.nome}
@@ -287,7 +287,7 @@ const Contatos = () => {
                   <SelectValue placeholder="Filtrar por fonte" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todas as fontes</SelectItem>
+                  <SelectItem value="all">Todas as fontes</SelectItem>
                   <SelectItem value="CASA_DOS_DADOS">Casa dos Dados</SelectItem>
                   <SelectItem value="LINKEDIN">LinkedIn</SelectItem>
                 </SelectContent>
