@@ -14,7 +14,83 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      contatos: {
+        Row: {
+          cargo: string | null
+          cidade: string | null
+          created_at: string
+          email: string | null
+          empresa: string | null
+          fonte: Database["public"]["Enums"]["fonte_dados"]
+          id: string
+          nicho_id: string | null
+          nome: string | null
+          texto_original: string | null
+          updated_at: string
+          user_id: string
+          whatsapp: string | null
+        }
+        Insert: {
+          cargo?: string | null
+          cidade?: string | null
+          created_at?: string
+          email?: string | null
+          empresa?: string | null
+          fonte: Database["public"]["Enums"]["fonte_dados"]
+          id?: string
+          nicho_id?: string | null
+          nome?: string | null
+          texto_original?: string | null
+          updated_at?: string
+          user_id: string
+          whatsapp?: string | null
+        }
+        Update: {
+          cargo?: string | null
+          cidade?: string | null
+          created_at?: string
+          email?: string | null
+          empresa?: string | null
+          fonte?: Database["public"]["Enums"]["fonte_dados"]
+          id?: string
+          nicho_id?: string | null
+          nome?: string | null
+          texto_original?: string | null
+          updated_at?: string
+          user_id?: string
+          whatsapp?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contatos_nicho_id_fkey"
+            columns: ["nicho_id"]
+            isOneToOne: false
+            referencedRelation: "nichos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      nichos: {
+        Row: {
+          created_at: string
+          id: string
+          nome: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          nome: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          nome?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +99,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      fonte_dados: "CASA_DOS_DADOS" | "LINKEDIN"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +226,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      fonte_dados: ["CASA_DOS_DADOS", "LINKEDIN"],
+    },
   },
 } as const
