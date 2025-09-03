@@ -13,6 +13,15 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 import { Search, Download, Trash2, Globe } from "lucide-react";
 
 interface Contact {
@@ -30,12 +39,17 @@ const Index = () => {
   const [inputText, setInputText] = useState("");
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [currentPageV1, setCurrentPageV1] = useState(1);
   
   // States for Version 2
   const [nicho, setNicho] = useState("");
   const [cidade, setCidade] = useState("");
   const [contactsV2, setContactsV2] = useState<Contact[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [currentPageV2, setCurrentPageV2] = useState(1);
+  
+  // Constants for pagination
+  const ITEMS_PER_PAGE = 100;
 
   const processText = () => {
     if (!inputText.trim()) return;
@@ -140,7 +154,7 @@ const Index = () => {
           }
           
           extractedContacts.push({
-            nome: nome || "Nome não identificado",
+            nome: nome || "",
             cargo: cargo || "Cargo não identificado", 
             email: emails[0],
             empresa: empresa || "Empresa não identificada",
@@ -308,7 +322,7 @@ const Index = () => {
         }
         
         extractedContacts.push({
-          nome: nome || "Nome não identificado",
+          nome: nome || "",
           cargo: cargo || "Cargo não identificado", 
           email: emails[0],
           empresa: empresa || "Empresa não identificada",
@@ -397,12 +411,12 @@ const Index = () => {
                 <Textarea
                   value={inputText}
                   onChange={(e) => setInputText(e.target.value)}
-                  placeholder="Cole aqui o texto dos resultados da pesquisa do Google (até 30.000 caracteres)..."
+                  placeholder="Cole aqui o texto dos resultados da pesquisa do Google (até 100.000 caracteres)..."
                   className="min-h-[200px] resize-none"
-                  maxLength={30000}
+                  maxLength={100000}
                 />
                 <div className="text-sm text-muted-foreground">
-                  {inputText.length}/30.000 caracteres
+                  {inputText.length}/100.000 caracteres
                 </div>
                 <div className="flex gap-2">
                   <Button 
@@ -448,6 +462,7 @@ const Index = () => {
                     <Table>
                       <TableHeader>
                         <TableRow>
+                          <TableHead className="w-16">#</TableHead>
                           <TableHead>Nome do Contato</TableHead>
                           <TableHead>Cargo</TableHead>
                           <TableHead>Email</TableHead>
@@ -458,9 +473,14 @@ const Index = () => {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {contacts.map((contact, index) => (
+                        {contacts
+                          .slice((currentPageV1 - 1) * ITEMS_PER_PAGE, currentPageV1 * ITEMS_PER_PAGE)
+                          .map((contact, index) => (
                           <TableRow key={index}>
-                            <TableCell className="font-medium">{contact.nome}</TableCell>
+                            <TableCell className="font-mono text-muted-foreground">
+                              {(currentPageV1 - 1) * ITEMS_PER_PAGE + index + 1}
+                            </TableCell>
+                            <TableCell className="font-medium">{contact.nome || "-"}</TableCell>
                             <TableCell>{contact.cargo}</TableCell>
                             <TableCell>{contact.email}</TableCell>
                             <TableCell>{contact.empresa}</TableCell>
@@ -474,6 +494,46 @@ const Index = () => {
                       </TableBody>
                     </Table>
                   </div>
+                  {contacts.length > ITEMS_PER_PAGE && (
+                    <div className="mt-4">
+                      <Pagination>
+                        <PaginationContent>
+                          <PaginationItem>
+                            <PaginationPrevious 
+                              onClick={() => setCurrentPageV1(Math.max(1, currentPageV1 - 1))}
+                              className={currentPageV1 === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                            />
+                          </PaginationItem>
+                          {Array.from({ length: Math.min(5, Math.ceil(contacts.length / ITEMS_PER_PAGE)) }, (_, i) => {
+                            const pageNumber = Math.max(1, currentPageV1 - 2) + i;
+                            if (pageNumber > Math.ceil(contacts.length / ITEMS_PER_PAGE)) return null;
+                            return (
+                              <PaginationItem key={pageNumber}>
+                                <PaginationLink 
+                                  onClick={() => setCurrentPageV1(pageNumber)}
+                                  isActive={currentPageV1 === pageNumber}
+                                  className="cursor-pointer"
+                                >
+                                  {pageNumber}
+                                </PaginationLink>
+                              </PaginationItem>
+                            );
+                          })}
+                          {Math.ceil(contacts.length / ITEMS_PER_PAGE) > currentPageV1 + 2 && (
+                            <PaginationItem>
+                              <PaginationEllipsis />
+                            </PaginationItem>
+                          )}
+                          <PaginationItem>
+                            <PaginationNext 
+                              onClick={() => setCurrentPageV1(Math.min(Math.ceil(contacts.length / ITEMS_PER_PAGE), currentPageV1 + 1))}
+                              className={currentPageV1 === Math.ceil(contacts.length / ITEMS_PER_PAGE) ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                            />
+                          </PaginationItem>
+                        </PaginationContent>
+                      </Pagination>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             )}
@@ -556,6 +616,7 @@ const Index = () => {
                     <Table>
                       <TableHeader>
                         <TableRow>
+                          <TableHead className="w-16">#</TableHead>
                           <TableHead>Nome do Contato</TableHead>
                           <TableHead>Cargo</TableHead>
                           <TableHead>Email</TableHead>
@@ -566,9 +627,14 @@ const Index = () => {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {contactsV2.map((contact, index) => (
+                        {contactsV2
+                          .slice((currentPageV2 - 1) * ITEMS_PER_PAGE, currentPageV2 * ITEMS_PER_PAGE)
+                          .map((contact, index) => (
                           <TableRow key={index}>
-                            <TableCell className="font-medium">{contact.nome}</TableCell>
+                            <TableCell className="font-mono text-muted-foreground">
+                              {(currentPageV2 - 1) * ITEMS_PER_PAGE + index + 1}
+                            </TableCell>
+                            <TableCell className="font-medium">{contact.nome || "-"}</TableCell>
                             <TableCell>{contact.cargo}</TableCell>
                             <TableCell>{contact.email}</TableCell>
                             <TableCell>{contact.empresa}</TableCell>
@@ -582,6 +648,46 @@ const Index = () => {
                       </TableBody>
                     </Table>
                   </div>
+                  {contactsV2.length > ITEMS_PER_PAGE && (
+                    <div className="mt-4">
+                      <Pagination>
+                        <PaginationContent>
+                          <PaginationItem>
+                            <PaginationPrevious 
+                              onClick={() => setCurrentPageV2(Math.max(1, currentPageV2 - 1))}
+                              className={currentPageV2 === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                            />
+                          </PaginationItem>
+                          {Array.from({ length: Math.min(5, Math.ceil(contactsV2.length / ITEMS_PER_PAGE)) }, (_, i) => {
+                            const pageNumber = Math.max(1, currentPageV2 - 2) + i;
+                            if (pageNumber > Math.ceil(contactsV2.length / ITEMS_PER_PAGE)) return null;
+                            return (
+                              <PaginationItem key={pageNumber}>
+                                <PaginationLink 
+                                  onClick={() => setCurrentPageV2(pageNumber)}
+                                  isActive={currentPageV2 === pageNumber}
+                                  className="cursor-pointer"
+                                >
+                                  {pageNumber}
+                                </PaginationLink>
+                              </PaginationItem>
+                            );
+                          })}
+                          {Math.ceil(contactsV2.length / ITEMS_PER_PAGE) > currentPageV2 + 2 && (
+                            <PaginationItem>
+                              <PaginationEllipsis />
+                            </PaginationItem>
+                          )}
+                          <PaginationItem>
+                            <PaginationNext 
+                              onClick={() => setCurrentPageV2(Math.min(Math.ceil(contactsV2.length / ITEMS_PER_PAGE), currentPageV2 + 1))}
+                              className={currentPageV2 === Math.ceil(contactsV2.length / ITEMS_PER_PAGE) ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                            />
+                          </PaginationItem>
+                        </PaginationContent>
+                      </Pagination>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             )}
