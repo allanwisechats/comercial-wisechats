@@ -19,6 +19,8 @@ interface Contact {
   email: string;
   empresa: string;
   whatsapp: string;
+  cidade: string;
+  textoOriginal: string;
 }
 
 const Index = () => {
@@ -40,6 +42,9 @@ const Index = () => {
       const nameRegex = /^[A-ZÁÉÍÓÚÂÊÎÔÛÀÈÌÒÙÃÕÇ][a-záéíóúâêîôûàèìòùãõç]+(?:\s+[A-ZÁÉÍÓÚÂÊÎÔÛÀÈÌÒÙÃÕÇ][a-záéíóúâêîôûàèìòùãõç]+)*$/;
       const whatsappRegex = /(?:\+55\s?)?(?:\(?0?\d{2}\)?\s?)?(?:9\s?)?[6-9]\d{3}[-\s]?\d{4}/g;
       
+      // Regex para cidades brasileiras comuns
+      const cidadeRegex = /\b(?:São Paulo|Rio de Janeiro|Belo Horizonte|Salvador|Brasília|Fortaleza|Manaus|Curitiba|Recife|Goiânia|Belém|Porto Alegre|Guarulhos|Campinas|São Luís|Maceió|Duque de Caxias|Natal|Teresina|Campo Grande|São Bernardo do Campo|Nova Iguaçu|João Pessoa|Santo André|São José dos Campos|Ribeirão Preto|Uberlândia|Sorocaba|Contagem|Aracaju|Feira de Santana|Cuiabá|Joinville|Juiz de Fora|Londrina|Aparecida de Goiânia|Niterói|Ananindeua|Porto Velho|Serra|Caxias do Sul|Vila Velha|Florianópolis|Macapá|Campos dos Goytacazes|São José do Rio Preto|Mauá|Carapicuíba|Olinda|Campina Grande|São José dos Pinhais|Mogi das Cruzes|Betim|Diadema|Jundiaí|Piracicaba|Cariacica|Bauru|Montes Claros|Canoas|Pelotas|Anápolis|Maringá|São Carlos|Petrolina|Praia Grande|Franca|Ponta Grossa|Foz do Iguaçu|Santa Maria|Blumenau|Vitória|Paulista|Limeira|Uberaba|Suzano|Caucaia|Governador Valadares|Volta Redonda|Santos|Petrópolis|Taboão da Serra|Caruaru|Guarujá|Magé|Taubaté|Marília|São Vicente|Mossoró|Viçosa|Rio Branco|Boa Vista|Americana)\b/gi;
+      
       // Cargos comuns (expandir conforme necessário)
       const cargoPatterns = [
         /\b(?:diretor|diretora|CEO|CTO|CFO|COO|gerente|coordenador|coordenadora|supervisor|supervisora|analista|especialista|consultor|consultora|assistente|desenvolvedor|desenvolvedora|programador|programadora|designer|arquiteto|arquiteta|engenheiro|engenheira|vendedor|vendedora|representante|executivo|executiva)\b/gi
@@ -57,10 +62,17 @@ const Index = () => {
           let cargo = "";
           let empresa = "";
           let whatsapp = "";
+          let cidade = "";
+          let linhasUsadas: string[] = [];
           
           // Busca informações nas linhas próximas
           for (let j = Math.max(0, i - 5); j <= Math.min(lines.length - 1, i + 5); j++) {
             const nearLine = lines[j].trim();
+            
+            // Adiciona linha ao contexto se tiver conteúdo relevante
+            if (nearLine.length > 3) {
+              linhasUsadas.push(nearLine);
+            }
             
             // Tenta extrair nome
             if (!nome && nameRegex.test(nearLine) && nearLine.length < 50) {
@@ -83,6 +95,14 @@ const Index = () => {
               const whatsappMatches = nearLine.match(whatsappRegex);
               if (whatsappMatches) {
                 whatsapp = whatsappMatches[0];
+              }
+            }
+            
+            // Tenta extrair cidade
+            if (!cidade) {
+              const cidadeMatches = nearLine.match(cidadeRegex);
+              if (cidadeMatches) {
+                cidade = cidadeMatches[0];
               }
             }
             
@@ -115,7 +135,9 @@ const Index = () => {
             cargo: cargo || "Cargo não identificado", 
             email: emails[0],
             empresa: empresa || "Empresa não identificada",
-            whatsapp: whatsapp || "Não informado"
+            whatsapp: whatsapp || "Não informado",
+            cidade: cidade || "Cidade não identificada",
+            textoOriginal: linhasUsadas.join(" | ")
           });
         }
       }
@@ -142,9 +164,9 @@ const Index = () => {
     if (contacts.length === 0) return;
     
     const csvContent = [
-      "Nome,Cargo,Email,Empresa,WhatsApp",
+      "Nome,Cargo,Email,Empresa,WhatsApp,Cidade,Texto Original",
       ...contacts.map(contact => 
-        `"${contact.nome}","${contact.cargo}","${contact.email}","${contact.empresa}","${contact.whatsapp}"`
+        `"${contact.nome}","${contact.cargo}","${contact.email}","${contact.empresa}","${contact.whatsapp}","${contact.cidade}","${contact.textoOriginal}"`
       )
     ].join('\n');
     
@@ -228,8 +250,10 @@ const Index = () => {
                       <TableHead>Nome do Contato</TableHead>
                       <TableHead>Cargo</TableHead>
                       <TableHead>Email</TableHead>
-                      <TableHead>Nome da Empresa</TableHead>
+                      <TableHead>Empresa</TableHead>
                       <TableHead>WhatsApp</TableHead>
+                      <TableHead>Cidade</TableHead>
+                      <TableHead>Texto Original</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -240,6 +264,10 @@ const Index = () => {
                         <TableCell>{contact.email}</TableCell>
                         <TableCell>{contact.empresa}</TableCell>
                         <TableCell>{contact.whatsapp}</TableCell>
+                        <TableCell>{contact.cidade}</TableCell>
+                        <TableCell className="max-w-xs truncate" title={contact.textoOriginal}>
+                          {contact.textoOriginal}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
