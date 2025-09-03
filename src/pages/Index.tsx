@@ -18,6 +18,7 @@ interface Contact {
   cargo: string;
   email: string;
   empresa: string;
+  whatsapp: string;
 }
 
 const Index = () => {
@@ -37,6 +38,7 @@ const Index = () => {
       // Regex patterns para extrair informações
       const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
       const nameRegex = /^[A-ZÁÉÍÓÚÂÊÎÔÛÀÈÌÒÙÃÕÇ][a-záéíóúâêîôûàèìòùãõç]+(?:\s+[A-ZÁÉÍÓÚÂÊÎÔÛÀÈÌÒÙÃÕÇ][a-záéíóúâêîôûàèìòùãõç]+)*$/;
+      const whatsappRegex = /(?:\+55\s?)?(?:\(?0?\d{2}\)?\s?)?(?:9\s?)?[6-9]\d{3}[-\s]?\d{4}/g;
       
       // Cargos comuns (expandir conforme necessário)
       const cargoPatterns = [
@@ -50,13 +52,14 @@ const Index = () => {
         const emails = line.match(emailRegex) || [];
         
         if (emails.length > 0) {
-          // Procura nome nas linhas anteriores e posteriores
+          // Procura informações nas linhas anteriores e posteriores
           let nome = "";
           let cargo = "";
           let empresa = "";
+          let whatsapp = "";
           
-          // Busca nome e cargo nas linhas próximas
-          for (let j = Math.max(0, i - 3); j <= Math.min(lines.length - 1, i + 3); j++) {
+          // Busca informações nas linhas próximas
+          for (let j = Math.max(0, i - 5); j <= Math.min(lines.length - 1, i + 5); j++) {
             const nearLine = lines[j].trim();
             
             // Tenta extrair nome
@@ -75,9 +78,29 @@ const Index = () => {
               }
             }
             
-            // Tenta extrair empresa (geralmente linhas que terminam com "Ltda", "SA", "Inc", etc.)
-            if (!empresa && /\b(ltda|sa|inc|corp|corporation|company|co\.|cia|me|epp|eireli)\b/gi.test(nearLine)) {
-              empresa = nearLine;
+            // Tenta extrair WhatsApp
+            if (!whatsapp) {
+              const whatsappMatches = nearLine.match(whatsappRegex);
+              if (whatsappMatches) {
+                whatsapp = whatsappMatches[0];
+              }
+            }
+            
+            // Nova lógica para empresa: primeira frase próxima ao email (sem regex específico)
+            if (!empresa && nearLine.length > 5 && nearLine.length < 80 && 
+                !emailRegex.test(nearLine) && !whatsappRegex.test(nearLine) &&
+                !nameRegex.test(nearLine) && j !== i) {
+              // Verifica se não é um cargo
+              let isCargo = false;
+              for (const pattern of cargoPatterns) {
+                if (pattern.test(nearLine)) {
+                  isCargo = true;
+                  break;
+                }
+              }
+              if (!isCargo) {
+                empresa = nearLine;
+              }
             }
           }
           
@@ -91,7 +114,8 @@ const Index = () => {
             nome: nome || "Nome não identificado",
             cargo: cargo || "Cargo não identificado", 
             email: emails[0],
-            empresa: empresa || "Empresa não identificada"
+            empresa: empresa || "Empresa não identificada",
+            whatsapp: whatsapp || "Não informado"
           });
         }
       }
@@ -118,9 +142,9 @@ const Index = () => {
     if (contacts.length === 0) return;
     
     const csvContent = [
-      "Nome,Cargo,Email,Empresa",
+      "Nome,Cargo,Email,Empresa,WhatsApp",
       ...contacts.map(contact => 
-        `"${contact.nome}","${contact.cargo}","${contact.email}","${contact.empresa}"`
+        `"${contact.nome}","${contact.cargo}","${contact.email}","${contact.empresa}","${contact.whatsapp}"`
       )
     ].join('\n');
     
@@ -205,6 +229,7 @@ const Index = () => {
                       <TableHead>Cargo</TableHead>
                       <TableHead>Email</TableHead>
                       <TableHead>Nome da Empresa</TableHead>
+                      <TableHead>WhatsApp</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -214,6 +239,7 @@ const Index = () => {
                         <TableCell>{contact.cargo}</TableCell>
                         <TableCell>{contact.email}</TableCell>
                         <TableCell>{contact.empresa}</TableCell>
+                        <TableCell>{contact.whatsapp}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
