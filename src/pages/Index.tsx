@@ -181,29 +181,43 @@ const Index = () => {
       
       console.log("Fazendo busca no Google:", googleUrl);
       
-      // Simular extração básica por enquanto (até implementarmos scraping real)
-      // Em um ambiente real, seria necessário usar uma API de scraping ou proxy
-      const mockContacts: Contact[] = [
-        {
-          nome: "João Silva", 
-          cargo: "Corretor",
-          email: "joao@exemplo.com",
-          empresa: "Silva Imóveis",
-          whatsapp: "(48) 99999-9999",
-          cidade: "Florianópolis",
-          textoOriginal: "João Silva - Corretor de Imóveis - Silva Imóveis - joao@exemplo.com - (48) 99999-9999"
-        }
-      ];
+      // Fazer scrapping real da página do Google
+      const response = await fetch('/api/scrape-google', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ url: googleUrl })
+      });
       
-      // Por enquanto, vamos retornar dados de exemplo
-      // TODO: Implementar scraping real do Google
-      setTimeout(() => {
-        setContactsV2(mockContacts);
-        setIsSearching(false);
-      }, 2000);
+      if (!response.ok) {
+        throw new Error('Erro ao fazer scrapping');
+      }
+      
+      const data = await response.text();
+      
+      // Processar o conteúdo HTML retornado
+      const extractedContacts = extractContactsFromHTML(data);
+      setContactsV2(extractedContacts);
       
     } catch (error) {
       console.error("Erro ao buscar contatos:", error);
+      // Fallback para uma implementação básica usando fetch direto
+      try {
+        const query = `site:casadosdados.com.br+"${nicho}"+("@gmail.com"+OR+"@yahoo.com"+OR+"@hotmail.com"+OR+"@outlook.com"+OR+"@aol.com"+OR+"@icloud.com")+AND+${cidade}`;
+        const googleUrl = `https://www.google.com/search?q=${encodeURIComponent(query)}&num=100`;
+        
+        const proxyResponse = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(googleUrl)}`);
+        const proxyData = await proxyResponse.json();
+        
+        if (proxyData.contents) {
+          const extractedContacts = extractContactsFromHTML(proxyData.contents);
+          setContactsV2(extractedContacts);
+        }
+      } catch (fallbackError) {
+        console.error("Erro no fallback:", fallbackError);
+      }
+    } finally {
       setIsSearching(false);
     }
   };
