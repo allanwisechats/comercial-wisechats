@@ -67,8 +67,34 @@ const ExtrairLeads = () => {
         textoOriginal: entry.trim()
       };
       
+      // First, try to find company name (usually first line with CNPJ or company indicators)
+      let companyName = '';
+      for (const line of lines) {
+        // Look for lines with CNPJ, LTDA, SA, ME, EPP, etc.
+        if (line.match(/\b(LTDA|S\.?A\.?|ME|EPP|EIRELI|CNPJ|INDIVIDUAL)\b/i)) {
+          // Extract company name before CNPJ or other identifiers
+          const cleanName = line.replace(/\s*-?\s*(CNPJ|CPF)[\s\d]+/gi, '').trim();
+          if (cleanName && !companyName) {
+            companyName = cleanName;
+            contact.empresa = cleanName;
+            break;
+          }
+        }
+      }
+      
       lines.forEach(line => {
         const lowerLine = line.toLowerCase();
+        
+        // Skip known data source names
+        const dataSources = ['casa dos dados', 'linkedin', 'serasa', 'receita federal'];
+        if (dataSources.some(source => lowerLine.includes(source))) {
+          return;
+        }
+        
+        // Skip URLs
+        if (line.includes('http') || line.includes('www.') || line.includes('.com')) {
+          return;
+        }
         
         // Try to extract email
         const emailMatch = line.match(/[\w\.-]+@[\w\.-]+\.\w+/);
@@ -76,27 +102,56 @@ const ExtrairLeads = () => {
           contact.email = emailMatch[0];
         }
         
-        // Try to extract WhatsApp
-        const whatsappMatch = line.match(/\+?[\d\s\(\)-]{10,20}/);
-        if (whatsappMatch && !contact.whatsapp) {
-          contact.whatsapp = whatsappMatch[0].trim();
+        // Try to extract WhatsApp/Phone
+        const phoneMatch = line.match(/(?:whatsapp|telefone|fone|cel)[\s:]*(\+?[\d\s\(\)-]{8,20})/i);
+        if (phoneMatch && !contact.whatsapp) {
+          contact.whatsapp = phoneMatch[1].trim();
+        } else {
+          // Fallback for standalone numbers
+          const numberMatch = line.match(/\+?[\d\s\(\)-]{10,20}/);
+          if (numberMatch && !contact.whatsapp && !emailMatch) {
+            contact.whatsapp = numberMatch[0].trim();
+          }
         }
         
         // Try to identify positions/job titles
-        const cargoKeywords = ['diretor', 'gerente', 'coordenador', 'supervisor', 'analista', 'assistente', 'consultor', 'especialista', 'líder', 'head', 'manager', 'ceo', 'cto', 'cfo'];
+        const cargoKeywords = ['diretor', 'gerente', 'coordenador', 'supervisor', 'analista', 'assistente', 'consultor', 'especialista', 'líder', 'head', 'manager', 'ceo', 'cto', 'cfo', 'presidente', 'vice', 'sócio'];
         if (cargoKeywords.some(keyword => lowerLine.includes(keyword)) && !contact.cargo) {
           contact.cargo = line;
         }
         
-        // If no specific pattern is found and we don't have a name yet, assume first non-email/phone line is name
-        if (!contact.nome && !emailMatch && !whatsappMatch && line.length > 3) {
+        // Try to identify city
+        const cityKeywords = ['cidade', 'município', 'localização'];
+        if (cityKeywords.some(keyword => lowerLine.includes(keyword)) && !contact.cidade) {
+          contact.cidade = line.replace(/.*?:\s*/i, '').trim();
+        }
+        
+        // For name, prioritize company name, otherwise use first meaningful line
+        if (!contact.nome && companyName) {
+          contact.nome = companyName;
+        } else if (!contact.nome && !emailMatch && !phoneMatch && 
+                  line.length > 3 && line.length < 100 && 
+                  !lowerLine.includes('cnae') && !lowerLine.includes('atividade')) {
           contact.nome = line;
         }
       });
       
-      // If we still don't have a name, use the first line
+      // If we still don't have a name but have company, use company as name
+      if (!contact.nome && contact.empresa) {
+        contact.nome = contact.empresa;
+      }
+      
+      // If we still don't have a name, use the first meaningful line
       if (!contact.nome && lines.length > 0) {
-        contact.nome = lines[0];
+        for (const line of lines) {
+          const lowerLine = line.toLowerCase();
+          if (!line.includes('@') && !line.match(/\d{8,}/) && 
+              !lowerLine.includes('casa dos dados') && !lowerLine.includes('linkedin') &&
+              !line.includes('http') && line.length > 3 && line.length < 100) {
+            contact.nome = line;
+            break;
+          }
+        }
       }
       
       // Only add contact if we have at least a name or email or phone
