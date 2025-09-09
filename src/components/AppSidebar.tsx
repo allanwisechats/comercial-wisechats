@@ -1,4 +1,4 @@
-import { Database, Contact, Target } from 'lucide-react';
+import { Database, Contact, Target, BarChart3 } from 'lucide-react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
   Sidebar,
@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/sidebar';
 
 const items = [
+  { title: 'Dashboard', url: '/dashboard', icon: BarChart3 },
   { title: 'Extrair Leads', url: '/', icon: Database },
   { title: 'Contatos', url: '/contatos', icon: Contact },
   { title: 'Modelo Spotter', url: '/modelo-spotter', icon: Target },

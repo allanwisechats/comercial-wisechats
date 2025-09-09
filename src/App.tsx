@@ -9,6 +9,7 @@ import { AppSidebar } from "@/components/AppSidebar";
 import ExtrairLeads from "./pages/ExtrairLeads";
 import Contatos from "./pages/Contatos";
 import { ModeloSpotter } from "./pages/ModeloSpotter";
+import Dashboard from "./pages/Dashboard";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import { useAuth } from "@/hooks/useAuth";
@@ -102,6 +103,7 @@ const App = () => (
           <AppLayout>
             <Routes>
               <Route path="/" element={<ExtrairLeads />} />
+              <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/contatos" element={<Contatos />} />
               <Route path="/modelo-spotter" element={<ModeloSpotter />} />
               <Route path="/auth" element={<Auth />} />

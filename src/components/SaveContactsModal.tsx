@@ -124,7 +124,24 @@ export function SaveContactsModal({ open, onOpenChange, contacts, onSave }: Save
         .from('contatos')
         .insert(contactsToInsert);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Erro ao salvar contatos:', error);
+        
+        // Check if it's a unique constraint violation
+        if (error.code === '23505') {
+          let message = "Alguns contatos não foram salvos pois já existem na base de dados.";
+          if (error.message.includes('email')) {
+            message = "Alguns contatos possuem emails já cadastrados na base de dados.";
+          } else if (error.message.includes('whatsapp')) {
+            message = "Alguns contatos possuem números de WhatsApp já cadastrados na base de dados.";
+          }
+          
+          toast.error(message);
+        } else {
+          toast.error('Erro ao salvar contatos');
+        }
+        return;
+      }
 
       toast.success(`${contacts.length} contatos salvos com sucesso!`);
       onSave();
@@ -139,7 +156,7 @@ export function SaveContactsModal({ open, onOpenChange, contacts, onSave }: Save
       setShowNewNicho(false);
     } catch (error) {
       console.error('Erro ao salvar contatos:', error);
-      toast.error('Erro ao salvar contatos');
+      toast.error('Erro inesperado ao salvar contatos');
     } finally {
       setIsLoading(false);
     }
