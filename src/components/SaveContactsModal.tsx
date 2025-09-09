@@ -122,22 +122,23 @@ export function SaveContactsModal({ open, onOpenChange, contacts, onSave }: Save
 
       if (error) throw error;
 
+      // Create normalized sets for comparison (lowercase and trimmed)
       const existingEmails = new Set(
-        existingContacts?.map(c => c.email).filter(email => email && email.trim() !== '') || []
+        existingContacts?.map(c => c.email?.toLowerCase()?.trim()).filter(email => email && email !== '') || []
       );
       const existingWhatsapps = new Set(
-        existingContacts?.map(c => c.whatsapp).filter(whatsapp => whatsapp && whatsapp.trim() !== '') || []
+        existingContacts?.map(c => c.whatsapp?.trim()).filter(whatsapp => whatsapp && whatsapp !== '') || []
       );
 
       const duplicated: Contact[] = [];
       const unique: Contact[] = [];
 
       contacts.forEach(contact => {
-        const cleanEmail = contact.email?.trim();
-        const cleanWhatsapp = contact.whatsapp?.trim();
+        const normalizedEmail = contact.email?.toLowerCase()?.trim();
+        const normalizedWhatsapp = contact.whatsapp?.trim();
         
-        const isDuplicateEmail = cleanEmail && existingEmails.has(cleanEmail);
-        const isDuplicateWhatsapp = cleanWhatsapp && existingWhatsapps.has(cleanWhatsapp);
+        const isDuplicateEmail = normalizedEmail && normalizedEmail !== '' && existingEmails.has(normalizedEmail);
+        const isDuplicateWhatsapp = normalizedWhatsapp && normalizedWhatsapp !== '' && existingWhatsapps.has(normalizedWhatsapp);
         
         if (isDuplicateEmail || isDuplicateWhatsapp) {
           duplicated.push(contact);
