@@ -122,9 +122,7 @@ export function SaveContactsModal({ open, onOpenChange, contacts, onSave }: Save
 
       if (error) throw error;
 
-      // Create normalized sets matching database constraints:
-      // - Email: case-insensitive (lower) for non-null/non-empty
-      // - WhatsApp: case-sensitive for non-null/non-empty
+      // Create normalized sets matching database constraints
       const existingEmails = new Set(
         existingContacts?.map(c => {
           const email = c.email?.trim();
@@ -139,6 +137,9 @@ export function SaveContactsModal({ open, onOpenChange, contacts, onSave }: Save
         }).filter(Boolean) || []
       );
 
+      // Track internal duplicates within the current batch
+      const batchEmails = new Set();
+      const batchWhatsapps = new Set();
       const duplicated: Contact[] = [];
       const unique: Contact[] = [];
 
@@ -146,20 +147,24 @@ export function SaveContactsModal({ open, onOpenChange, contacts, onSave }: Save
         const emailToCheck = contact.email?.trim();
         const whatsappToCheck = contact.whatsapp?.trim();
         
-        // Check email duplicates (case-insensitive, matching database constraint)
-        const isDuplicateEmail = emailToCheck && 
-          emailToCheck !== '' && 
-          existingEmails.has(emailToCheck.toLowerCase());
+        const normalizedEmail = emailToCheck && emailToCheck !== '' ? emailToCheck.toLowerCase() : null;
+        const normalizedWhatsapp = whatsappToCheck && whatsappToCheck !== '' ? whatsappToCheck : null;
         
-        // Check whatsapp duplicates (case-sensitive, matching database constraint)
-        const isDuplicateWhatsapp = whatsappToCheck && 
-          whatsappToCheck !== '' && 
-          existingWhatsapps.has(whatsappToCheck);
+        // Check for duplicates against existing database records
+        const isDuplicateInDB = (normalizedEmail && existingEmails.has(normalizedEmail)) || 
+                               (normalizedWhatsapp && existingWhatsapps.has(normalizedWhatsapp));
         
-        if (isDuplicateEmail || isDuplicateWhatsapp) {
+        // Check for duplicates within current batch
+        const isDuplicateInBatch = (normalizedEmail && batchEmails.has(normalizedEmail)) || 
+                                  (normalizedWhatsapp && batchWhatsapps.has(normalizedWhatsapp));
+        
+        if (isDuplicateInDB || isDuplicateInBatch) {
           duplicated.push(contact);
         } else {
           unique.push(contact);
+          // Add to batch tracking
+          if (normalizedEmail) batchEmails.add(normalizedEmail);
+          if (normalizedWhatsapp) batchWhatsapps.add(normalizedWhatsapp);
         }
       });
 
@@ -205,9 +210,9 @@ export function SaveContactsModal({ open, onOpenChange, contacts, onSave }: Save
       const contactsToInsert = duplicatesInfo.unique.map(contact => ({
         nome: contact.nome || null,
         cargo: contact.cargo || null,
-        email: contact.email || null,
+        email: contact.email?.trim() || null,
         empresa: contact.empresa || null,
-        whatsapp: contact.whatsapp || null,
+        whatsapp: contact.whatsapp?.trim() || null,
         cidade: cidade || contact.cidade || null,
         fonte,
         origem,
@@ -216,30 +221,49 @@ export function SaveContactsModal({ open, onOpenChange, contacts, onSave }: Save
         texto_original: contact.textoOriginal || null,
       }));
 
-      const { error } = await supabase
-        .from('contatos')
-        .insert(contactsToInsert);
+      // Insert contacts one by one to handle individual errors
+      let successCount = 0;
+      let errorCount = 0;
 
-      if (error) {
-        console.error('Erro ao salvar contatos:', error);
-        toast.error('Erro ao salvar contatos');
-        return;
+      for (const contactData of contactsToInsert) {
+        try {
+          const { error } = await supabase
+            .from('contatos')
+            .insert([contactData]);
+
+          if (error) {
+            console.error('Erro ao inserir contato:', contactData.nome, error);
+            errorCount++;
+          } else {
+            successCount++;
+          }
+        } catch (error) {
+          console.error('Erro inesperado ao inserir contato:', contactData.nome, error);
+          errorCount++;
+        }
       }
 
-      toast.success(`${duplicatesInfo.unique.length} contatos únicos salvos com sucesso!`);
-      onSave();
-      onOpenChange(false);
-      
-      // Reset form
-      setFonte('');
-      setOrigem('');
-      setCidade('');
-      setNichoId('');
-      setNewNicho('');
-      setShowNewNicho(false);
-      setDuplicatesInfo({ duplicated: [], unique: [], show: false });
+      if (successCount > 0) {
+        toast.success(`${successCount} contatos salvos com sucesso!`);
+        if (errorCount > 0) {
+          toast.warning(`${errorCount} contatos não puderam ser salvos devido a duplicatas ou outros erros.`);
+        }
+        onSave();
+        onOpenChange(false);
+        
+        // Reset form
+        setFonte('');
+        setOrigem('');
+        setCidade('');
+        setNichoId('');
+        setNewNicho('');
+        setShowNewNicho(false);
+        setDuplicatesInfo({ duplicated: [], unique: [], show: false });
+      } else {
+        toast.error('Nenhum contato pôde ser salvo. Verifique se há duplicatas.');
+      }
     } catch (error) {
-      console.error('Erro ao salvar contatos:', error);
+      console.error('Erro geral ao salvar contatos:', error);
       toast.error('Erro inesperado ao salvar contatos');
     } finally {
       setIsLoading(false);
