@@ -122,23 +122,39 @@ export function SaveContactsModal({ open, onOpenChange, contacts, onSave }: Save
 
       if (error) throw error;
 
-      // Create normalized sets for comparison (lowercase and trimmed)
+      // Create normalized sets matching database constraints:
+      // - Email: case-insensitive (lower) for non-null/non-empty
+      // - WhatsApp: case-sensitive for non-null/non-empty
       const existingEmails = new Set(
-        existingContacts?.map(c => c.email?.toLowerCase()?.trim()).filter(email => email && email !== '') || []
+        existingContacts?.map(c => {
+          const email = c.email?.trim();
+          return email && email !== '' ? email.toLowerCase() : null;
+        }).filter(Boolean) || []
       );
+      
       const existingWhatsapps = new Set(
-        existingContacts?.map(c => c.whatsapp?.trim()).filter(whatsapp => whatsapp && whatsapp !== '') || []
+        existingContacts?.map(c => {
+          const whatsapp = c.whatsapp?.trim();
+          return whatsapp && whatsapp !== '' ? whatsapp : null;
+        }).filter(Boolean) || []
       );
 
       const duplicated: Contact[] = [];
       const unique: Contact[] = [];
 
       contacts.forEach(contact => {
-        const normalizedEmail = contact.email?.toLowerCase()?.trim();
-        const normalizedWhatsapp = contact.whatsapp?.trim();
+        const emailToCheck = contact.email?.trim();
+        const whatsappToCheck = contact.whatsapp?.trim();
         
-        const isDuplicateEmail = normalizedEmail && normalizedEmail !== '' && existingEmails.has(normalizedEmail);
-        const isDuplicateWhatsapp = normalizedWhatsapp && normalizedWhatsapp !== '' && existingWhatsapps.has(normalizedWhatsapp);
+        // Check email duplicates (case-insensitive, matching database constraint)
+        const isDuplicateEmail = emailToCheck && 
+          emailToCheck !== '' && 
+          existingEmails.has(emailToCheck.toLowerCase());
+        
+        // Check whatsapp duplicates (case-sensitive, matching database constraint)
+        const isDuplicateWhatsapp = whatsappToCheck && 
+          whatsappToCheck !== '' && 
+          existingWhatsapps.has(whatsappToCheck);
         
         if (isDuplicateEmail || isDuplicateWhatsapp) {
           duplicated.push(contact);
