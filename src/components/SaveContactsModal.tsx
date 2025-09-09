@@ -118,25 +118,26 @@ export function SaveContactsModal({ open, onOpenChange, contacts, onSave }: Save
       const { data: existingContacts, error } = await supabase
         .from('contatos')
         .select('email, whatsapp')
-        .eq('user_id', user.id)
-        .not('email', 'is', null)
-        .not('whatsapp', 'is', null);
+        .eq('user_id', user.id);
 
       if (error) throw error;
 
       const existingEmails = new Set(
-        existingContacts?.map(c => c.email).filter(Boolean) || []
+        existingContacts?.map(c => c.email).filter(email => email && email.trim() !== '') || []
       );
       const existingWhatsapps = new Set(
-        existingContacts?.map(c => c.whatsapp).filter(Boolean) || []
+        existingContacts?.map(c => c.whatsapp).filter(whatsapp => whatsapp && whatsapp.trim() !== '') || []
       );
 
       const duplicated: Contact[] = [];
       const unique: Contact[] = [];
 
       contacts.forEach(contact => {
-        const isDuplicateEmail = contact.email && existingEmails.has(contact.email);
-        const isDuplicateWhatsapp = contact.whatsapp && existingWhatsapps.has(contact.whatsapp);
+        const cleanEmail = contact.email?.trim();
+        const cleanWhatsapp = contact.whatsapp?.trim();
+        
+        const isDuplicateEmail = cleanEmail && existingEmails.has(cleanEmail);
+        const isDuplicateWhatsapp = cleanWhatsapp && existingWhatsapps.has(cleanWhatsapp);
         
         if (isDuplicateEmail || isDuplicateWhatsapp) {
           duplicated.push(contact);
