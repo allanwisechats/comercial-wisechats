@@ -49,12 +49,42 @@ const ExtrairLeads = () => {
   const extractContacts = (text: string): Contact[] => {
     const contacts: Contact[] = [];
     
-    // Split by double newlines or multiple spaces to get individual entries
-    const entries = text.split(/\n\s*\n|\t\t+/).filter(entry => entry.trim());
+    // Split text into lines and identify company entries
+    const allLines = text.split('\n').map(line => line.trim()).filter(line => line);
     
-    entries.forEach(entry => {
-      const lines = entry.split('\n').map(line => line.trim()).filter(line => line);
+    let currentEntry: string[] = [];
+    const entries: string[][] = [];
+    
+    // Group lines into entries - each entry starts with a company name line
+    for (let i = 0; i < allLines.length; i++) {
+      const line = allLines[i];
       
+      // Check if this line looks like a company name (contains LTDA, SA, ME, EPP, etc. or CNPJ)
+      const isCompanyLine = line.match(/\b(LTDA|S\.?A\.?|ME|EPP|EIRELI|CNPJ)\b/i) && 
+                           !line.toLowerCase().includes('casa dos dados') &&
+                           !line.toLowerCase().includes('linkedin') &&
+                           !line.includes('http');
+      
+      if (isCompanyLine && currentEntry.length > 0) {
+        // Start of new company, save current entry
+        entries.push([...currentEntry]);
+        currentEntry = [line];
+      } else if (isCompanyLine && currentEntry.length === 0) {
+        // First company
+        currentEntry = [line];
+      } else if (currentEntry.length > 0) {
+        // Add line to current entry
+        currentEntry.push(line);
+      }
+    }
+    
+    // Don't forget the last entry
+    if (currentEntry.length > 0) {
+      entries.push(currentEntry);
+    }
+    
+    // Process each entry
+    entries.forEach(lines => {
       if (lines.length === 0) return;
       
       const contact: Contact = {
@@ -64,20 +94,17 @@ const ExtrairLeads = () => {
         empresa: '',
         whatsapp: '',
         cidade: '',
-        textoOriginal: entry.trim()
+        textoOriginal: lines.join('\n')
       };
       
-      // The first line always contains the company name and CNPJ
-      let companyName = '';
-      if (lines.length > 0) {
-        const firstLine = lines[0];
-        // Extract company name from first line, removing CNPJ and other identifiers
-        companyName = firstLine.replace(/\s*-?\s*(CNPJ|CPF)[\s\d\/-]+/gi, '').trim();
-        contact.empresa = companyName;
-        contact.nome = companyName;
-      }
+      // The first line is always the company name
+      const firstLine = lines[0];
+      const companyName = firstLine.replace(/\s*-?\s*(CNPJ|CPF)[\s\d\/-]+/gi, '').trim();
+      contact.empresa = companyName;
+      contact.nome = companyName;
       
-      lines.forEach(line => {
+      // Process other lines for additional information
+      lines.slice(1).forEach(line => {
         const lowerLine = line.toLowerCase();
         
         // Skip known data source names
@@ -89,11 +116,6 @@ const ExtrairLeads = () => {
         // Skip URLs
         if (line.includes('http') || line.includes('www.') || line.includes('.com')) {
           return;
-        }
-        
-        // For other fields, skip the company name line if it's the first line
-        if (line === lines[0] && companyName) {
-          return; // Skip first line as it's already processed as company name
         }
         
         // Try to extract email
@@ -127,8 +149,8 @@ const ExtrairLeads = () => {
         }
       });
       
-      // Only add contact if we have at least a name or email or phone
-      if (contact.nome || contact.email || contact.whatsapp) {
+      // Only add contact if we have at least a name
+      if (contact.nome) {
         contacts.push(contact);
       }
     });
