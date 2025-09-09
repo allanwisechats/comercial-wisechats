@@ -40,12 +40,28 @@ export function SaveContactsModal({ open, onOpenChange, contacts, onSave }: Save
   const [nichos, setNichos] = useState<Nicho[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showNewNicho, setShowNewNicho] = useState(false);
+  const [duplicatesInfo, setDuplicatesInfo] = useState<{
+    duplicated: Contact[];
+    unique: Contact[];
+    show: boolean;
+  }>({
+    duplicated: [],
+    unique: [],
+    show: false
+  });
 
   useEffect(() => {
     if (open) {
       loadNichos();
+      // Reset duplicates info when modal opens
+      setDuplicatesInfo({ duplicated: [], unique: [], show: false });
     }
   }, [open]);
+
+  // Reset duplicates info when contacts or any relevant field changes
+  useEffect(() => {
+    setDuplicatesInfo({ duplicated: [], unique: [], show: false });
+  }, [contacts, fonte, origem, cidade, nichoId]);
 
   const loadNichos = async () => {
     if (!user) return;
@@ -92,6 +108,56 @@ export function SaveContactsModal({ open, onOpenChange, contacts, onSave }: Save
     }
   };
 
+  const checkForDuplicates = async () => {
+    if (!user || contacts.length === 0) return;
+
+    setIsLoading(true);
+
+    try {
+      // Get existing emails and whatsapps from database
+      const { data: existingContacts, error } = await supabase
+        .from('contatos')
+        .select('email, whatsapp')
+        .eq('user_id', user.id)
+        .not('email', 'is', null)
+        .not('whatsapp', 'is', null);
+
+      if (error) throw error;
+
+      const existingEmails = new Set(
+        existingContacts?.map(c => c.email).filter(Boolean) || []
+      );
+      const existingWhatsapps = new Set(
+        existingContacts?.map(c => c.whatsapp).filter(Boolean) || []
+      );
+
+      const duplicated: Contact[] = [];
+      const unique: Contact[] = [];
+
+      contacts.forEach(contact => {
+        const isDuplicateEmail = contact.email && existingEmails.has(contact.email);
+        const isDuplicateWhatsapp = contact.whatsapp && existingWhatsapps.has(contact.whatsapp);
+        
+        if (isDuplicateEmail || isDuplicateWhatsapp) {
+          duplicated.push(contact);
+        } else {
+          unique.push(contact);
+        }
+      });
+
+      setDuplicatesInfo({
+        duplicated,
+        unique,
+        show: true
+      });
+    } catch (error) {
+      console.error('Erro ao verificar duplicatas:', error);
+      toast.error('Erro ao verificar duplicatas');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleSave = async () => {
     if (!user || !fonte || !origem || !cidade || !nichoId) {
       toast.error('Preencha todos os campos obrigatórios');
@@ -103,10 +169,22 @@ export function SaveContactsModal({ open, onOpenChange, contacts, onSave }: Save
       return;
     }
 
+    // If duplicates info is not shown yet, check for duplicates first
+    if (!duplicatesInfo.show) {
+      await checkForDuplicates();
+      return;
+    }
+
+    // If no unique contacts to save
+    if (duplicatesInfo.unique.length === 0) {
+      toast.error('Todos os contatos são duplicatas. Nenhum contato será salvo.');
+      return;
+    }
+
     setIsLoading(true);
 
     try {
-      const contactsToInsert = contacts.map(contact => ({
+      const contactsToInsert = duplicatesInfo.unique.map(contact => ({
         nome: contact.nome || null,
         cargo: contact.cargo || null,
         email: contact.email || null,
@@ -126,24 +204,11 @@ export function SaveContactsModal({ open, onOpenChange, contacts, onSave }: Save
 
       if (error) {
         console.error('Erro ao salvar contatos:', error);
-        
-        // Check if it's a unique constraint violation
-        if (error.code === '23505') {
-          let message = "Alguns contatos não foram salvos pois já existem na base de dados.";
-          if (error.message.includes('email')) {
-            message = "Alguns contatos possuem emails já cadastrados na base de dados.";
-          } else if (error.message.includes('whatsapp')) {
-            message = "Alguns contatos possuem números de WhatsApp já cadastrados na base de dados.";
-          }
-          
-          toast.error(message);
-        } else {
-          toast.error('Erro ao salvar contatos');
-        }
+        toast.error('Erro ao salvar contatos');
         return;
       }
 
-      toast.success(`${contacts.length} contatos salvos com sucesso!`);
+      toast.success(`${duplicatesInfo.unique.length} contatos únicos salvos com sucesso!`);
       onSave();
       onOpenChange(false);
       
@@ -154,6 +219,7 @@ export function SaveContactsModal({ open, onOpenChange, contacts, onSave }: Save
       setNichoId('');
       setNewNicho('');
       setShowNewNicho(false);
+      setDuplicatesInfo({ duplicated: [], unique: [], show: false });
     } catch (error) {
       console.error('Erro ao salvar contatos:', error);
       toast.error('Erro inesperado ao salvar contatos');
@@ -260,8 +326,24 @@ export function SaveContactsModal({ open, onOpenChange, contacts, onSave }: Save
             )}
           </div>
 
-          <div className="text-sm text-muted-foreground">
-            {contacts.length} contatos serão salvos
+          <div className="space-y-2">
+            {!duplicatesInfo.show ? (
+              <div className="text-sm text-muted-foreground">
+                {contacts.length} contatos serão analisados para duplicatas
+              </div>
+            ) : (
+              <div className="space-y-2 p-3 bg-muted rounded-md">
+                <div className="text-sm font-medium">Análise de Duplicatas:</div>
+                <div className="text-sm text-green-600">
+                  ✓ {duplicatesInfo.unique.length} contatos únicos serão salvos
+                </div>
+                {duplicatesInfo.duplicated.length > 0 && (
+                  <div className="text-sm text-orange-600">
+                    ⚠ {duplicatesInfo.duplicated.length} contatos duplicados serão ignorados
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="flex justify-end gap-2">
@@ -276,7 +358,12 @@ export function SaveContactsModal({ open, onOpenChange, contacts, onSave }: Save
               onClick={handleSave}
               disabled={isLoading || !fonte || !origem || !cidade || !nichoId}
             >
-              {isLoading ? 'Salvando...' : 'Salvar Contatos'}
+              {isLoading 
+                ? 'Analisando...' 
+                : !duplicatesInfo.show 
+                  ? 'Analisar Duplicatas' 
+                  : `Salvar ${duplicatesInfo.unique.length} Contatos Únicos`
+              }
             </Button>
           </div>
         </div>
