@@ -225,7 +225,6 @@ export default function Dashboard() {
                   <SelectValue placeholder="Todos os nichos" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todos os nichos</SelectItem>
                   {nichos.map(nicho => (
                     <SelectItem key={nicho.id} value={nicho.id}>{nicho.nome}</SelectItem>
                   ))}
@@ -242,7 +241,6 @@ export default function Dashboard() {
                   <SelectValue placeholder="Todas as origens" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todas as origens</SelectItem>
                   {origens.map(origem => (
                     <SelectItem key={origem} value={origem}>{origem}</SelectItem>
                   ))}
@@ -259,7 +257,6 @@ export default function Dashboard() {
                   <SelectValue placeholder="Todas as cidades" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todas as cidades</SelectItem>
                   {cidades.map(cidade => (
                     <SelectItem key={cidade} value={cidade}>{cidade}</SelectItem>
                   ))}
