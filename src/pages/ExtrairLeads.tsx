@@ -67,19 +67,14 @@ const ExtrairLeads = () => {
         textoOriginal: entry.trim()
       };
       
-      // First, try to find company name (usually first line with CNPJ or company indicators)
+      // The first line always contains the company name and CNPJ
       let companyName = '';
-      for (const line of lines) {
-        // Look for lines with CNPJ, LTDA, SA, ME, EPP, etc.
-        if (line.match(/\b(LTDA|S\.?A\.?|ME|EPP|EIRELI|CNPJ|INDIVIDUAL)\b/i)) {
-          // Extract company name before CNPJ or other identifiers
-          const cleanName = line.replace(/\s*-?\s*(CNPJ|CPF)[\s\d]+/gi, '').trim();
-          if (cleanName && !companyName) {
-            companyName = cleanName;
-            contact.empresa = cleanName;
-            break;
-          }
-        }
+      if (lines.length > 0) {
+        const firstLine = lines[0];
+        // Extract company name from first line, removing CNPJ and other identifiers
+        companyName = firstLine.replace(/\s*-?\s*(CNPJ|CPF)[\s\d\/-]+/gi, '').trim();
+        contact.empresa = companyName;
+        contact.nome = companyName;
       }
       
       lines.forEach(line => {
@@ -94,6 +89,11 @@ const ExtrairLeads = () => {
         // Skip URLs
         if (line.includes('http') || line.includes('www.') || line.includes('.com')) {
           return;
+        }
+        
+        // For other fields, skip the company name line if it's the first line
+        if (line === lines[0] && companyName) {
+          return; // Skip first line as it's already processed as company name
         }
         
         // Try to extract email
@@ -125,34 +125,7 @@ const ExtrairLeads = () => {
         if (cityKeywords.some(keyword => lowerLine.includes(keyword)) && !contact.cidade) {
           contact.cidade = line.replace(/.*?:\s*/i, '').trim();
         }
-        
-        // For name, prioritize company name, otherwise use first meaningful line
-        if (!contact.nome && companyName) {
-          contact.nome = companyName;
-        } else if (!contact.nome && !emailMatch && !phoneMatch && 
-                  line.length > 3 && line.length < 100 && 
-                  !lowerLine.includes('cnae') && !lowerLine.includes('atividade')) {
-          contact.nome = line;
-        }
       });
-      
-      // If we still don't have a name but have company, use company as name
-      if (!contact.nome && contact.empresa) {
-        contact.nome = contact.empresa;
-      }
-      
-      // If we still don't have a name, use the first meaningful line
-      if (!contact.nome && lines.length > 0) {
-        for (const line of lines) {
-          const lowerLine = line.toLowerCase();
-          if (!line.includes('@') && !line.match(/\d{8,}/) && 
-              !lowerLine.includes('casa dos dados') && !lowerLine.includes('linkedin') &&
-              !line.includes('http') && line.length > 3 && line.length < 100) {
-            contact.nome = line;
-            break;
-          }
-        }
-      }
       
       // Only add contact if we have at least a name or email or phone
       if (contact.nome || contact.email || contact.whatsapp) {
