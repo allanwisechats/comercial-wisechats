@@ -18,6 +18,10 @@ interface ContatoSpotter {
   origem: string;
   cargo: string;
   created_at: string;
+  nicho_id: string;
+  nichos?: {
+    nome: string;
+  };
 }
 
 export function ModeloSpotter() {
@@ -38,7 +42,10 @@ export function ModeloSpotter() {
       setIsLoading(true);
       const { data, error } = await supabase
         .from('contatos')
-        .select('*')
+        .select(`
+          *,
+          nichos(nome)
+        `)
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
@@ -69,41 +76,46 @@ export function ModeloSpotter() {
 
     const csvContent = [
       headers.join(','),
-      ...contatos.map(contato => [
-        contato.nome || '', // Nome do Lead
-        contato.origem || '', // Origem
-        '', // Sub-Origem
-        '', // Mercado
-        '', // Produto
-        '', // Site
-        'Brasil', // País
-        '', // Estado
-        contato.cidade || '', // Cidade
-        '', // Logradouro
-        '', // Número
-        '', // Bairro
-        '', // Complemento
-        '', // CEP
-        '+55', // DDI
-        contato.whatsapp || '', // Telefones
-        '', // Observação
-        '', // CPF/CNPJ
-        '', // Email Pré-vendedor
-        contato.nome || '', // Nome Contato
-        contato.email || '', // E-mail Contato
-        contato.cargo || '', // Cargo Contato
-        '+55', // DDI Contato
-        contato.whatsapp || '', // Telefones Contato
-        '', // Tipo do Serv. Comunicação
-        '', // ID do Serv. Comunicação
-        '', // Faturamento
-        '', // Contato Anterior com IA
-        '', // Avaliacao Google
-        '', // Total Reviews Google
-        contato.empresa || '', // Nome da Empresa
-        '', // Etapa
-        '' // Funil
-      ].map(field => `"${field.replace(/"/g, '""')}"`).join(','))
+      ...contatos.map(contato => {
+        const subOrigem = contato.fonte === 'LINKEDIN' ? 'Linkedin' : 'Casa dos Dados';
+        const mercado = contato.nichos?.nome || '';
+        
+        return [
+          contato.nome || '', // Nome do Lead
+          contato.origem || '', // Origem
+          subOrigem, // Sub-Origem
+          mercado, // Mercado
+          '', // Produto
+          '', // Site
+          'Brasil', // País
+          '', // Estado
+          contato.cidade || '', // Cidade
+          '', // Logradouro
+          '', // Número
+          '', // Bairro
+          '', // Complemento
+          '', // CEP
+          '55', // DDI
+          contato.whatsapp || '', // Telefones
+          '', // Observação
+          '', // CPF/CNPJ
+          'vendas.wisechats@gmail.com', // Email Pré-vendedor
+          contato.nome || '', // Nome Contato
+          contato.email || '', // E-mail Contato
+          contato.cargo || '', // Cargo Contato
+          '55', // DDI Contato
+          contato.whatsapp || '', // Telefones Contato
+          '', // Tipo do Serv. Comunicação
+          '', // ID do Serv. Comunicação
+          '', // Faturamento
+          '', // Contato Anterior com IA
+          '', // Avaliacao Google
+          '', // Total Reviews Google
+          contato.empresa || '', // Nome da Empresa
+          '', // Etapa
+          '' // Funil
+        ].map(field => `"${field.replace(/"/g, '""')}"`).join(',');
+      })
     ].join('\n');
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -156,29 +168,42 @@ export function ModeloSpotter() {
                   <TableRow>
                     <TableHead>Nome do Lead</TableHead>
                     <TableHead>Origem</TableHead>
+                    <TableHead>Sub-Origem</TableHead>
+                    <TableHead>Mercado</TableHead>
+                    <TableHead>País</TableHead>
                     <TableHead>Cidade</TableHead>
+                    <TableHead>DDI</TableHead>
+                    <TableHead>Telefones</TableHead>
+                    <TableHead>Email Pré-vendedor</TableHead>
+                    <TableHead>Nome Contato</TableHead>
                     <TableHead>E-mail Contato</TableHead>
-                    <TableHead>Telefones Contato</TableHead>
                     <TableHead>Cargo Contato</TableHead>
                     <TableHead>Nome da Empresa</TableHead>
-                    <TableHead>Fonte</TableHead>
-                    <TableHead>Data</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {contatos.map((contato) => (
-                    <TableRow key={contato.id}>
-                      <TableCell className="font-medium">{contato.nome}</TableCell>
-                      <TableCell>{contato.origem}</TableCell>
-                      <TableCell>{contato.cidade}</TableCell>
-                      <TableCell>{contato.email}</TableCell>
-                      <TableCell>{contato.whatsapp}</TableCell>
-                      <TableCell>{contato.cargo}</TableCell>
-                      <TableCell>{contato.empresa}</TableCell>
-                      <TableCell>{contato.fonte}</TableCell>
-                      <TableCell>{new Date(contato.created_at).toLocaleDateString('pt-BR')}</TableCell>
-                    </TableRow>
-                  ))}
+                  {contatos.map((contato) => {
+                    const subOrigem = contato.fonte === 'LINKEDIN' ? 'Linkedin' : 'Casa dos Dados';
+                    const mercado = contato.nichos?.nome || 'N/A';
+                    
+                    return (
+                      <TableRow key={contato.id}>
+                        <TableCell className="font-medium">{contato.nome}</TableCell>
+                        <TableCell>{contato.origem}</TableCell>
+                        <TableCell>{subOrigem}</TableCell>
+                        <TableCell>{mercado}</TableCell>
+                        <TableCell>Brasil</TableCell>
+                        <TableCell>{contato.cidade}</TableCell>
+                        <TableCell>55</TableCell>
+                        <TableCell>{contato.whatsapp}</TableCell>
+                        <TableCell>vendas.wisechats@gmail.com</TableCell>
+                        <TableCell>{contato.nome}</TableCell>
+                        <TableCell>{contato.email}</TableCell>
+                        <TableCell>{contato.cargo}</TableCell>
+                        <TableCell>{contato.empresa}</TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
