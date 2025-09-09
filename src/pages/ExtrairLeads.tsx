@@ -445,43 +445,35 @@ const ExtrairLeads = () => {
 
                   <div className="border rounded-lg overflow-hidden">
                     <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-12">#</TableHead>
-                          <TableHead>Nome</TableHead>
-                          <TableHead>Cargo</TableHead>
-                          <TableHead>Email</TableHead>
-                          <TableHead>Empresa</TableHead>
-                          <TableHead>WhatsApp</TableHead>
-                          <TableHead>Cidade</TableHead>
-                        </TableRow>
-                      </TableHeader>
+                       <TableHeader>
+                         <TableRow>
+                           <TableHead className="w-12">#</TableHead>
+                           <TableHead>Nome</TableHead>
+                           <TableHead>Email</TableHead>
+                           <TableHead>Empresa</TableHead>
+                           <TableHead>WhatsApp</TableHead>
+                         </TableRow>
+                       </TableHeader>
                       <TableBody>
-                        {currentContacts.map((contact, index) => (
-                          <TableRow key={startIndex + index}>
-                            <TableCell className="font-mono text-xs text-muted-foreground">
-                              {startIndex + index + 1}
-                            </TableCell>
-                            <TableCell className="font-medium">
-                              {contact.nome || '-'}
-                            </TableCell>
-                            <TableCell className="text-sm text-muted-foreground">
-                              {contact.cargo || '-'}
-                            </TableCell>
-                            <TableCell className="text-sm">
-                              {contact.email || '-'}
-                            </TableCell>
-                            <TableCell className="text-sm text-muted-foreground">
-                              {contact.empresa || '-'}
-                            </TableCell>
-                            <TableCell className="text-sm font-mono">
-                              {contact.whatsapp || '-'}
-                            </TableCell>
-                            <TableCell className="text-sm text-muted-foreground">
-                              {contact.cidade || '-'}
-                            </TableCell>
-                          </TableRow>
-                        ))}
+                         {currentContacts.map((contact, index) => (
+                           <TableRow key={startIndex + index}>
+                             <TableCell className="font-mono text-xs text-muted-foreground">
+                               {startIndex + index + 1}
+                             </TableCell>
+                             <TableCell className="font-medium">
+                               {contact.nome || '-'}
+                             </TableCell>
+                             <TableCell className="text-sm">
+                               {contact.email || '-'}
+                             </TableCell>
+                             <TableCell className="text-sm text-muted-foreground">
+                               {contact.empresa || '-'}
+                             </TableCell>
+                             <TableCell className="text-sm font-mono">
+                               {contact.whatsapp || '-'}
+                             </TableCell>
+                           </TableRow>
+                         ))}
                       </TableBody>
                     </Table>
                   </div>

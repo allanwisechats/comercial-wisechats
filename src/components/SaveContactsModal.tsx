@@ -34,6 +34,7 @@ export function SaveContactsModal({ open, onOpenChange, contacts, onSave }: Save
   const { user } = useAuth();
   const [fonte, setFonte] = useState<'CASA_DOS_DADOS' | 'LINKEDIN' | ''>('');
   const [origem, setOrigem] = useState('');
+  const [cidade, setCidade] = useState('');
   const [nichoId, setNichoId] = useState('');
   const [newNicho, setNewNicho] = useState('');
   const [nichos, setNichos] = useState<Nicho[]>([]);
@@ -92,7 +93,7 @@ export function SaveContactsModal({ open, onOpenChange, contacts, onSave }: Save
   };
 
   const handleSave = async () => {
-    if (!user || !fonte || !origem || !nichoId) {
+    if (!user || !fonte || !origem || !cidade || !nichoId) {
       toast.error('Preencha todos os campos obrigatórios');
       return;
     }
@@ -111,7 +112,7 @@ export function SaveContactsModal({ open, onOpenChange, contacts, onSave }: Save
         email: contact.email || null,
         empresa: contact.empresa || null,
         whatsapp: contact.whatsapp || null,
-        cidade: contact.cidade || null,
+        cidade: cidade || contact.cidade || null,
         fonte,
         origem,
         nicho_id: nichoId,
@@ -132,6 +133,7 @@ export function SaveContactsModal({ open, onOpenChange, contacts, onSave }: Save
       // Reset form
       setFonte('');
       setOrigem('');
+      setCidade('');
       setNichoId('');
       setNewNicho('');
       setShowNewNicho(false);
@@ -171,6 +173,16 @@ export function SaveContactsModal({ open, onOpenChange, contacts, onSave }: Save
               placeholder="Digite a origem dos dados"
               value={origem}
               onChange={(e) => setOrigem(e.target.value)}
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="cidade">Cidade *</Label>
+            <Input
+              id="cidade"
+              placeholder="Digite a cidade"
+              value={cidade}
+              onChange={(e) => setCidade(e.target.value)}
             />
           </div>
 
@@ -245,7 +257,7 @@ export function SaveContactsModal({ open, onOpenChange, contacts, onSave }: Save
             </Button>
             <Button
               onClick={handleSave}
-              disabled={isLoading || !fonte || !origem || !nichoId}
+              disabled={isLoading || !fonte || !origem || !cidade || !nichoId}
             >
               {isLoading ? 'Salvando...' : 'Salvar Contatos'}
             </Button>
