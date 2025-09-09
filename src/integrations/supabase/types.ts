@@ -25,6 +25,7 @@ export type Database = {
           id: string
           nicho_id: string | null
           nome: string | null
+          origem: string | null
           texto_original: string | null
           updated_at: string
           user_id: string
@@ -40,6 +41,7 @@ export type Database = {
           id?: string
           nicho_id?: string | null
           nome?: string | null
+          origem?: string | null
           texto_original?: string | null
           updated_at?: string
           user_id: string
@@ -55,6 +57,7 @@ export type Database = {
           id?: string
           nicho_id?: string | null
           nome?: string | null
+          origem?: string | null
           texto_original?: string | null
           updated_at?: string
           user_id?: string

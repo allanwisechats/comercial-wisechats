@@ -33,6 +33,7 @@ interface SaveContactsModalProps {
 export function SaveContactsModal({ open, onOpenChange, contacts, onSave }: SaveContactsModalProps) {
   const { user } = useAuth();
   const [fonte, setFonte] = useState<'CASA_DOS_DADOS' | 'LINKEDIN' | ''>('');
+  const [origem, setOrigem] = useState('');
   const [nichoId, setNichoId] = useState('');
   const [newNicho, setNewNicho] = useState('');
   const [nichos, setNichos] = useState<Nicho[]>([]);
@@ -91,7 +92,7 @@ export function SaveContactsModal({ open, onOpenChange, contacts, onSave }: Save
   };
 
   const handleSave = async () => {
-    if (!user || !fonte || !nichoId) {
+    if (!user || !fonte || !origem || !nichoId) {
       toast.error('Preencha todos os campos obrigatórios');
       return;
     }
@@ -112,6 +113,7 @@ export function SaveContactsModal({ open, onOpenChange, contacts, onSave }: Save
         whatsapp: contact.whatsapp || null,
         cidade: contact.cidade || null,
         fonte,
+        origem,
         nicho_id: nichoId,
         user_id: user.id,
         texto_original: contact.textoOriginal || null,
@@ -129,6 +131,7 @@ export function SaveContactsModal({ open, onOpenChange, contacts, onSave }: Save
       
       // Reset form
       setFonte('');
+      setOrigem('');
       setNichoId('');
       setNewNicho('');
       setShowNewNicho(false);
@@ -159,6 +162,16 @@ export function SaveContactsModal({ open, onOpenChange, contacts, onSave }: Save
                 <SelectItem value="LINKEDIN">LinkedIn</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          <div>
+            <Label htmlFor="origem">Origem *</Label>
+            <Input
+              id="origem"
+              placeholder="Digite a origem dos dados"
+              value={origem}
+              onChange={(e) => setOrigem(e.target.value)}
+            />
           </div>
 
           <div>
@@ -232,7 +245,7 @@ export function SaveContactsModal({ open, onOpenChange, contacts, onSave }: Save
             </Button>
             <Button
               onClick={handleSave}
-              disabled={isLoading || !fonte || !nichoId}
+              disabled={isLoading || !fonte || !origem || !nichoId}
             >
               {isLoading ? 'Salvando...' : 'Salvar Contatos'}
             </Button>

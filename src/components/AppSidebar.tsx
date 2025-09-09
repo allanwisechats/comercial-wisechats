@@ -1,4 +1,4 @@
-import { Database, Contact } from 'lucide-react';
+import { Database, Contact, Target } from 'lucide-react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
   Sidebar,
@@ -15,6 +15,7 @@ import {
 const items = [
   { title: 'Extrair Leads', url: '/', icon: Database },
   { title: 'Contatos', url: '/contatos', icon: Contact },
+  { title: 'Modelo Spotter', url: '/modelo-spotter', icon: Target },
 ];
 
 export function AppSidebar() {

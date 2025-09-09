@@ -8,6 +8,7 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { AppSidebar } from "@/components/AppSidebar";
 import ExtrairLeads from "./pages/ExtrairLeads";
 import Contatos from "./pages/Contatos";
+import { ModeloSpotter } from "./pages/ModeloSpotter";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import { useAuth } from "@/hooks/useAuth";
@@ -102,6 +103,7 @@ const App = () => (
             <Routes>
               <Route path="/" element={<ExtrairLeads />} />
               <Route path="/contatos" element={<Contatos />} />
+              <Route path="/modelo-spotter" element={<ModeloSpotter />} />
               <Route path="/auth" element={<Auth />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
