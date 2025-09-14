@@ -21,10 +21,11 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from '@/components/ui/pagination';
-import { Search, Download, Filter } from 'lucide-react';
+import { Search, Download, Filter, Send } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useSpotterApi } from '@/hooks/useSpotterApi';
 
 interface Contato {
   id: string;
@@ -37,6 +38,7 @@ interface Contato {
   fonte: 'CASA_DOS_DADOS' | 'LINKEDIN';
   nicho_id: string | null;
   created_at: string;
+  origem?: string | null;
   nichos?: {
     nome: string;
   };
@@ -49,6 +51,7 @@ interface Nicho {
 
 const Contatos = () => {
   const { user } = useAuth();
+  const { sendToSpotter, isLoading: isSpotterLoading } = useSpotterApi();
   const [contatos, setContatos] = useState<Contato[]>([]);
   const [filteredContatos, setFilteredContatos] = useState<Contato[]>([]);
   const [nichos, setNichos] = useState<Nicho[]>([]);
@@ -334,18 +337,19 @@ const Contatos = () => {
               <>
                 <div className="border rounded-lg overflow-hidden">
                   <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-12">#</TableHead>
-                        <TableHead>Nome</TableHead>
-                        <TableHead>Cargo</TableHead>
-                        <TableHead>Email</TableHead>
-                        <TableHead>WhatsApp</TableHead>
-                        <TableHead>Fonte</TableHead>
-                        <TableHead>Nicho</TableHead>
-                        <TableHead>Data</TableHead>
-                      </TableRow>
-                    </TableHeader>
+                     <TableHeader>
+                       <TableRow>
+                         <TableHead className="w-12">#</TableHead>
+                         <TableHead>Nome</TableHead>
+                         <TableHead>Cargo</TableHead>
+                         <TableHead>Email</TableHead>
+                         <TableHead>WhatsApp</TableHead>
+                         <TableHead>Fonte</TableHead>
+                         <TableHead>Nicho</TableHead>
+                         <TableHead>Data</TableHead>
+                         <TableHead className="w-32">Ações</TableHead>
+                       </TableRow>
+                     </TableHeader>
                     <TableBody>
                       {currentContatos.map((contato, index) => (
                         <TableRow key={contato.id}>
@@ -372,10 +376,26 @@ const Contatos = () => {
                           <TableCell className="text-sm">
                             {contato.nichos?.nome || '-'}
                           </TableCell>
-                          <TableCell className="text-sm text-muted-foreground">
-                            {new Date(contato.created_at).toLocaleDateString('pt-BR')}
-                          </TableCell>
-                        </TableRow>
+                           <TableCell className="text-sm text-muted-foreground">
+                             {new Date(contato.created_at).toLocaleDateString('pt-BR')}
+                           </TableCell>
+                           <TableCell>
+                             <Button
+                               size="sm"
+                               variant="outline"
+                               onClick={() => sendToSpotter(contato)}
+                               disabled={isSpotterLoading(contato.id)}
+                               className="flex items-center gap-1"
+                             >
+                               {isSpotterLoading(contato.id) ? (
+                                 <div className="animate-spin rounded-full h-3 w-3 border-b border-primary"></div>
+                               ) : (
+                                 <Send className="w-3 h-3" />
+                               )}
+                               <span className="hidden sm:inline">Spotter</span>
+                             </Button>
+                           </TableCell>
+                         </TableRow>
                       ))}
                     </TableBody>
                   </Table>
