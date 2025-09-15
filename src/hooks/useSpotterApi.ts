@@ -151,11 +151,17 @@ export const useSpotterApi = () => {
       }
 
       const leadResult = await leadResponse.json();
-      const leadId = leadResult.id || leadResult.leadId;
+      console.log('Resposta da API de Lead:', leadResult);
+      
+      // Verificar diferentes possíveis propriedades de ID
+      const leadId = leadResult.id || leadResult.leadId || leadResult.data?.id || leadResult.data?.leadId;
 
       if (!leadId) {
-        throw new Error('Lead criado, mas ID não foi retornado pela API');
+        console.error('Estrutura da resposta da API:', leadResult);
+        throw new Error(`Lead criado, mas ID não foi encontrado. Resposta recebida: ${JSON.stringify(leadResult)}`);
       }
+
+      console.log('Lead ID encontrado:', leadId);
 
       // Segunda chamada: Criar o contato usando o leadId
       const spotterContact = mapContatoToSpotterContact(contato, leadId);
