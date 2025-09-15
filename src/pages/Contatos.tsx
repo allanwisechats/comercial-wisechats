@@ -21,11 +21,28 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from '@/components/ui/pagination';
-import { Search, Download, Filter, Send } from 'lucide-react';
+import { Search, Download, Filter, Send, Eye, Trash2, MoreHorizontal } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useSpotterApi } from '@/hooks/useSpotterApi';
+import { ContactDetailsModal } from '@/components/ContactDetailsModal';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface Contato {
   id: string;
@@ -38,7 +55,9 @@ interface Contato {
   fonte: 'CASA_DOS_DADOS' | 'LINKEDIN';
   nicho_id: string | null;
   created_at: string;
+  updated_at: string;
   origem?: string | null;
+  texto_original?: string | null;
   enviado_spotter?: boolean;
   nichos?: {
     nome: string;
@@ -57,10 +76,14 @@ const Contatos = () => {
   const [filteredContatos, setFilteredContatos] = useState<Contato[]>([]);
   const [nichos, setNichos] = useState<Nicho[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedNicho, setSelectedNicho] = useState('all');
+  const [selectedNichos, setSelectedNichos] = useState<string[]>([]);
   const [selectedFonte, setSelectedFonte] = useState('all');
   const [isLoading, setIsLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
+  const [selectedContact, setSelectedContact] = useState<Contato | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [contactToDelete, setContactToDelete] = useState<Contato | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const itemsPerPage = 50;
 
   useEffect(() => {
@@ -72,7 +95,7 @@ const Contatos = () => {
 
   useEffect(() => {
     applyFilters();
-  }, [contatos, searchTerm, selectedNicho, selectedFonte]);
+  }, [contatos, searchTerm, selectedNichos, selectedFonte]);
 
   const loadContatos = async () => {
     if (!user) return;
@@ -82,7 +105,20 @@ const Contatos = () => {
       const { data, error } = await supabase
         .from('contatos')
         .select(`
-          *,
+          id,
+          nome,
+          cargo,
+          email,
+          empresa,
+          whatsapp,
+          cidade,
+          fonte,
+          nicho_id,
+          created_at,
+          updated_at,
+          origem,
+          texto_original,
+          enviado_spotter,
           nichos (
             nome
           )
@@ -132,9 +168,11 @@ const Contatos = () => {
       );
     }
 
-    // Filter by nicho
-    if (selectedNicho && selectedNicho !== 'all') {
-      filtered = filtered.filter(contato => contato.nicho_id === selectedNicho);
+    // Filter by nichos
+    if (selectedNichos.length > 0) {
+      filtered = filtered.filter(contato => 
+        selectedNichos.includes(contato.nicho_id || '')
+      );
     }
 
     // Filter by fonte
@@ -189,9 +227,50 @@ const Contatos = () => {
     }
   };
 
+  const handleDeleteContact = async (contato: Contato) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('contatos')
+        .delete()
+        .eq('id', contato.id)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      setContatos(prevContatos => 
+        prevContatos.filter(c => c.id !== contato.id)
+      );
+      toast.success('Contato excluído com sucesso!');
+    } catch (error) {
+      console.error('Erro ao excluir contato:', error);
+      toast.error('Erro ao excluir contato');
+    }
+  };
+
+  const handleContactUpdate = (updatedContact: Contato) => {
+    setContatos(prevContatos => 
+      prevContatos.map(c => 
+        c.id === updatedContact.id ? updatedContact : c
+      )
+    );
+    setIsModalOpen(false);
+  };
+
+  const openContactDetails = (contato: Contato) => {
+    setSelectedContact(contato);
+    setIsModalOpen(true);
+  };
+
+  const openDeleteDialog = (contato: Contato) => {
+    setContactToDelete(contato);
+    setIsDeleteDialogOpen(true);
+  };
+
   const clearFilters = () => {
     setSearchTerm('');
-    setSelectedNicho('all');
+    setSelectedNichos([]);
     setSelectedFonte('all');
   };
 
@@ -284,19 +363,52 @@ const Contatos = () => {
                 />
               </div>
               
-              <Select value={selectedNicho} onValueChange={setSelectedNicho}>
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Filtrar por nicho" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos os nichos</SelectItem>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="w-48 justify-between">
+                    {selectedNichos.length === 0 
+                      ? "Selecionar nichos"
+                      : selectedNichos.length === 1
+                      ? nichos.find(n => n.id === selectedNichos[0])?.nome
+                      : `${selectedNichos.length} nichos selecionados`
+                    }
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-48" align="start">
                   {nichos.map((nicho) => (
-                    <SelectItem key={nicho.id} value={nicho.id}>
+                    <DropdownMenuItem
+                      key={nicho.id}
+                      onClick={() => {
+                        setSelectedNichos(prev => 
+                          prev.includes(nicho.id)
+                            ? prev.filter(id => id !== nicho.id)
+                            : [...prev, nicho.id]
+                        );
+                      }}
+                      className="flex items-center gap-2"
+                    >
+                      <div className={`w-3 h-3 border rounded-sm ${
+                        selectedNichos.includes(nicho.id) 
+                          ? 'bg-primary border-primary' 
+                          : 'border-muted-foreground'
+                      }`}>
+                        {selectedNichos.includes(nicho.id) && (
+                          <div className="w-full h-full bg-primary-foreground rounded-sm scale-50" />
+                        )}
+                      </div>
                       {nicho.nome}
-                    </SelectItem>
+                    </DropdownMenuItem>
                   ))}
-                </SelectContent>
-              </Select>
+                  {selectedNichos.length > 0 && (
+                    <>
+                      <DropdownMenuItem className="border-t" onClick={() => setSelectedNichos([])}>
+                        Limpar seleção
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
 
               <Select value={selectedFonte} onValueChange={setSelectedFonte}>
                 <SelectTrigger className="w-48">
@@ -398,24 +510,39 @@ const Contatos = () => {
                                 {contato.enviado_spotter ? 'Enviado' : 'Pendente'}
                               </Badge>
                             </TableCell>
-                            <TableCell>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleSpotterSend(contato)}
-                                disabled={isSpotterLoading(contato.id) || contato.enviado_spotter}
-                                className="flex items-center gap-1"
-                              >
-                                {isSpotterLoading(contato.id) ? (
-                                  <div className="animate-spin rounded-full h-3 w-3 border-b border-primary"></div>
-                                ) : (
-                                  <Send className="w-3 h-3" />
-                                )}
-                                <span className="hidden sm:inline">
-                                  {contato.enviado_spotter ? 'Enviado' : 'Spotter'}
-                                </span>
-                              </Button>
-                            </TableCell>
+                             <TableCell>
+                               <div className="flex items-center gap-1">
+                                 <Button
+                                   size="sm"
+                                   variant="ghost"
+                                   onClick={() => openContactDetails(contato)}
+                                   className="h-8 w-8 p-0"
+                                 >
+                                   <Eye className="w-4 h-4" />
+                                 </Button>
+                                 <Button
+                                   size="sm"
+                                   variant="ghost"
+                                   onClick={() => handleSpotterSend(contato)}
+                                   disabled={isSpotterLoading(contato.id) || contato.enviado_spotter}
+                                   className="h-8 w-8 p-0"
+                                 >
+                                   {isSpotterLoading(contato.id) ? (
+                                     <div className="animate-spin rounded-full h-3 w-3 border-b border-primary"></div>
+                                   ) : (
+                                     <Send className="w-4 h-4" />
+                                   )}
+                                 </Button>
+                                 <Button
+                                   size="sm"
+                                   variant="ghost"
+                                   onClick={() => openDeleteDialog(contato)}
+                                   className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                                 >
+                                   <Trash2 className="w-4 h-4" />
+                                 </Button>
+                               </div>
+                             </TableCell>
                          </TableRow>
                       ))}
                     </TableBody>
@@ -446,6 +573,40 @@ const Contatos = () => {
           </div>
         </CardContent>
       </Card>
+
+      <ContactDetailsModal
+        open={isModalOpen}
+        onOpenChange={setIsModalOpen}
+        contato={selectedContact}
+        nichos={nichos}
+        onSave={handleContactUpdate}
+      />
+
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir o contato "{contactToDelete?.nome}"? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (contactToDelete) {
+                  handleDeleteContact(contactToDelete);
+                  setIsDeleteDialogOpen(false);
+                  setContactToDelete(null);
+                }
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
