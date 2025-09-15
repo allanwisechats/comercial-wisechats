@@ -128,32 +128,17 @@ export const useSpotterApi = () => {
       const createResult = await createResponse.json();
       console.log('Lead criado com sucesso:', createResult);
 
-      // 2) Buscar o Lead criado para obter o ID
-      const leadName = leadData.lead.name;
-      const leadsUrl = buildLeadFilterUrl(leadName);
-      console.log('Buscando lead criado para obter ID:', { leadName, leadsUrl });
-      const leadsRes = await fetch(leadsUrl, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'token_exact': apiToken,
-          'Accept': 'application/json',
-        },
-      });
-      if (!leadsRes.ok) {
-        const errorText = await leadsRes.text();
-        throw new Error(`Erro ao buscar lead recém-criado: HTTP ${leadsRes.status}: ${errorText}`);
-      }
-      const leadsData = await leadsRes.json();
-      const leadId = Array.isArray(leadsData?.value) && leadsData.value.length > 0 ? leadsData.value[0].id : null;
+      // 2) Capturar o ID do lead diretamente da resposta da criação
+      const leadId = createResult.value;
       if (!leadId) {
-        throw new Error('Lead criado, mas ID não encontrado na busca.');
+        throw new Error('Lead criado, mas ID não retornado na resposta.');
       }
+      console.log('ID do lead capturado:', leadId);
 
       // 3) Criar o contato (personsAdd) usando o ID do lead
       const personPayload = {
         leadId,
-        name: contato.nome || leadName,
+        name: contato.nome || leadData.lead.name,
         email: contato.email || '',
         phone: contato.whatsapp?.replace(/\s+/g, '') || '',
         position: contato.cargo || '',
