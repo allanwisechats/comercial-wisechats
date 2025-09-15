@@ -138,8 +138,8 @@ export const useSpotterApi = () => {
       // 3) Criar o contato (personsAdd) usando o ID do lead
       const personPayload = {
         leadId,
-        Name: contato.nome || leadData.lead.name,
-        "E-mail": contato.email || '',
+        name: contato.nome || leadData.lead.name,
+        email: contato.email || '',
         phone1: contato.whatsapp?.replace(/\s+/g, '') || '',
         jobTitle: contato.cargo || '',
         mainContact: true,
