@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Pagination,
   PaginationContent,
@@ -27,6 +28,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useSpotterApi } from '@/hooks/useSpotterApi';
 import { ContactDetailsModal } from '@/components/ContactDetailsModal';
+import { BulkActionsBar } from '@/components/BulkActionsBar';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -84,6 +86,9 @@ const Contatos = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [contactToDelete, setContactToDelete] = useState<Contato | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [selectedContacts, setSelectedContacts] = useState<string[]>([]);
+  const [isBulkDeleteDialogOpen, setIsBulkDeleteDialogOpen] = useState(false);
+  const [isBulkProcessing, setIsBulkProcessing] = useState(false);
   const itemsPerPage = 50;
 
   useEffect(() => {
@@ -274,11 +279,113 @@ const Contatos = () => {
     setSelectedFonte('all');
   };
 
+  // Bulk actions
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedContacts(currentContatos.map(c => c.id));
+    } else {
+      setSelectedContacts([]);
+    }
+  };
+
+  const handleSelectContact = (contactId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedContacts(prev => [...prev, contactId]);
+    } else {
+      setSelectedContacts(prev => prev.filter(id => id !== contactId));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (!user || selectedContacts.length === 0) return;
+
+    setIsBulkProcessing(true);
+    try {
+      const { error } = await supabase
+        .from('contatos')
+        .delete()
+        .in('id', selectedContacts)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      setContatos(prevContatos => 
+        prevContatos.filter(c => !selectedContacts.includes(c.id))
+      );
+      setSelectedContacts([]);
+      toast.success(`${selectedContacts.length} contatos excluídos com sucesso!`);
+    } catch (error) {
+      console.error('Erro ao excluir contatos:', error);
+      toast.error('Erro ao excluir contatos');
+    } finally {
+      setIsBulkProcessing(false);
+      setIsBulkDeleteDialogOpen(false);
+    }
+  };
+
+  const handleBulkSpotterSend = async () => {
+    if (selectedContacts.length === 0) return;
+
+    setIsBulkProcessing(true);
+    const contactsToSend = contatos.filter(c => 
+      selectedContacts.includes(c.id) && !c.enviado_spotter
+    );
+
+    if (contactsToSend.length === 0) {
+      toast.error('Todos os contatos selecionados já foram enviados ao Spotter');
+      setIsBulkProcessing(false);
+      return;
+    }
+
+    let successCount = 0;
+    const batchSize = 5; // Process in batches to avoid overwhelming the API
+
+    for (let i = 0; i < contactsToSend.length; i += batchSize) {
+      const batch = contactsToSend.slice(i, i + batchSize);
+      const batchPromises = batch.map(async (contato) => {
+        const success = await sendToSpotter(contato);
+        if (success) {
+          successCount++;
+          // Update local state
+          setContatos(prevContatos => 
+            prevContatos.map(c => 
+              c.id === contato.id ? { ...c, enviado_spotter: true } : c
+            )
+          );
+        }
+        return success;
+      });
+
+      await Promise.all(batchPromises);
+      
+      // Show progress
+      toast.success(`Enviando contatos: ${Math.min(i + batchSize, contactsToSend.length)} de ${contactsToSend.length}`);
+    }
+
+    setSelectedContacts([]);
+    setIsBulkProcessing(false);
+    
+    if (successCount > 0) {
+      toast.success(`${successCount} contatos enviados ao Spotter com sucesso!`);
+    }
+    if (successCount < contactsToSend.length) {
+      toast.error(`${contactsToSend.length - successCount} contatos falharam ao enviar`);
+    }
+  };
+
+  const clearSelection = () => {
+    setSelectedContacts([]);
+  };
+
   // Pagination
   const totalPages = Math.ceil(filteredContatos.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const currentContatos = filteredContatos.slice(startIndex, endIndex);
+
+  // Selection helpers
+  const isAllSelected = currentContatos.length > 0 && currentContatos.every(c => selectedContacts.includes(c.id));
+  const isIndeterminate = currentContatos.some(c => selectedContacts.includes(c.id)) && !isAllSelected;
 
   const renderPaginationItems = () => {
     const items = [];
@@ -464,6 +571,13 @@ const Contatos = () => {
                   <Table>
                       <TableHeader>
                        <TableRow>
+                         <TableHead className="w-12">
+                           <Checkbox
+                             checked={isAllSelected}
+                             onCheckedChange={handleSelectAll}
+                             className={isIndeterminate ? "data-[state=indeterminate]:bg-primary" : ""}
+                           />
+                         </TableHead>
                          <TableHead className="w-12">#</TableHead>
                          <TableHead>Nome</TableHead>
                          <TableHead>Cargo</TableHead>
@@ -476,12 +590,18 @@ const Contatos = () => {
                          <TableHead className="w-32">Ações</TableHead>
                        </TableRow>
                      </TableHeader>
-                    <TableBody>
-                      {currentContatos.map((contato, index) => (
-                        <TableRow key={contato.id}>
-                          <TableCell className="font-mono text-xs text-muted-foreground">
-                            {startIndex + index + 1}
-                          </TableCell>
+                     <TableBody>
+                       {currentContatos.map((contato, index) => (
+                         <TableRow key={contato.id}>
+                           <TableCell>
+                             <Checkbox
+                               checked={selectedContacts.includes(contato.id)}
+                               onCheckedChange={(checked) => handleSelectContact(contato.id, checked as boolean)}
+                             />
+                           </TableCell>
+                           <TableCell className="font-mono text-xs text-muted-foreground">
+                             {startIndex + index + 1}
+                           </TableCell>
                           <TableCell className="font-medium">
                             {contato.nome || '-'}
                           </TableCell>
@@ -574,6 +694,15 @@ const Contatos = () => {
         </CardContent>
       </Card>
 
+      <BulkActionsBar
+        selectedCount={selectedContacts.length}
+        onDelete={() => setIsBulkDeleteDialogOpen(true)}
+        onSendToSpotter={handleBulkSpotterSend}
+        onClear={clearSelection}
+        isVisible={selectedContacts.length > 0}
+        isProcessing={isBulkProcessing}
+      />
+
       <ContactDetailsModal
         open={isModalOpen}
         onOpenChange={setIsModalOpen}
@@ -603,6 +732,27 @@ const Contatos = () => {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={isBulkDeleteDialogOpen} onOpenChange={setIsBulkDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar exclusão em massa</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir os {selectedContacts.length} contatos selecionados? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleBulkDelete}
+              disabled={isBulkProcessing}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isBulkProcessing ? 'Excluindo...' : 'Excluir Todos'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
