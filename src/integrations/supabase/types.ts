@@ -21,6 +21,7 @@ export type Database = {
           created_at: string
           email: string | null
           empresa: string | null
+          enviado_spotter: boolean
           fonte: Database["public"]["Enums"]["fonte_dados"]
           id: string
           nicho_id: string | null
@@ -37,6 +38,7 @@ export type Database = {
           created_at?: string
           email?: string | null
           empresa?: string | null
+          enviado_spotter?: boolean
           fonte: Database["public"]["Enums"]["fonte_dados"]
           id?: string
           nicho_id?: string | null
@@ -53,6 +55,7 @@ export type Database = {
           created_at?: string
           email?: string | null
           empresa?: string | null
+          enviado_spotter?: boolean
           fonte?: Database["public"]["Enums"]["fonte_dados"]
           id?: string
           nicho_id?: string | null

@@ -1,9 +1,12 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 interface SpotterLead {
   name: string;
+  industry: string;
   source: string;
+  subSource: string;
   ddiPhone: string;
   phone: string;
   city: string;
@@ -26,6 +29,10 @@ interface Contato {
   fonte: 'CASA_DOS_DADOS' | 'LINKEDIN';
   created_at: string;
   origem?: string | null;
+  enviado_spotter?: boolean;
+  nichos?: {
+    nome: string;
+  } | null;
 }
 
 const SPOTTER_API_URL = 'https://api.exactspotter.com/v3/LeadsAdd';
@@ -76,7 +83,9 @@ export const useSpotterApi = () => {
 
     return {
       name: contato.nome || 'Nome não informado',
+      industry: contato.nichos?.nome || '',
       source: contato.origem || (contato.fonte === 'CASA_DOS_DADOS' ? 'Casa dos Dados' : 'LinkedIn'),
+      subSource: contato.fonte === 'CASA_DOS_DADOS' ? 'Casa dos Dados' : 'LinkedIn',
       ddiPhone,
       phone,
       city: contato.cidade || '',
@@ -116,6 +125,12 @@ export const useSpotterApi = () => {
       }
 
       const result = await response.json();
+      
+      // Marcar o contato como enviado no banco de dados
+      await supabase
+        .from('contatos')
+        .update({ enviado_spotter: true })
+        .eq('id', contactId);
       
       toast.success('Contato enviado para o Spotter com sucesso!');
       return true;

@@ -39,6 +39,7 @@ interface Contato {
   nicho_id: string | null;
   created_at: string;
   origem?: string | null;
+  enviado_spotter?: boolean;
   nichos?: {
     nome: string;
   };
@@ -174,6 +175,18 @@ const Contatos = () => {
     link.click();
     
     toast.success('Contatos exportados com sucesso!');
+  };
+
+  const handleSpotterSend = async (contato: Contato) => {
+    const success = await sendToSpotter(contato);
+    if (success) {
+      // Atualizar o contato localmente
+      setContatos(prevContatos => 
+        prevContatos.map(c => 
+          c.id === contato.id ? { ...c, enviado_spotter: true } : c
+        )
+      );
+    }
   };
 
   const clearFilters = () => {
@@ -337,7 +350,7 @@ const Contatos = () => {
               <>
                 <div className="border rounded-lg overflow-hidden">
                   <Table>
-                     <TableHeader>
+                      <TableHeader>
                        <TableRow>
                          <TableHead className="w-12">#</TableHead>
                          <TableHead>Nome</TableHead>
@@ -347,6 +360,7 @@ const Contatos = () => {
                          <TableHead>Fonte</TableHead>
                          <TableHead>Nicho</TableHead>
                          <TableHead>Data</TableHead>
+                         <TableHead className="w-24">Status</TableHead>
                          <TableHead className="w-32">Ações</TableHead>
                        </TableRow>
                      </TableHeader>
@@ -373,28 +387,35 @@ const Contatos = () => {
                               {contato.fonte === 'CASA_DOS_DADOS' ? 'Casa dos Dados' : 'LinkedIn'}
                             </Badge>
                           </TableCell>
-                          <TableCell className="text-sm">
-                            {contato.nichos?.nome || '-'}
-                          </TableCell>
-                           <TableCell className="text-sm text-muted-foreground">
-                             {new Date(contato.created_at).toLocaleDateString('pt-BR')}
+                           <TableCell className="text-sm">
+                             {contato.nichos?.nome || '-'}
                            </TableCell>
-                           <TableCell>
-                             <Button
-                               size="sm"
-                               variant="outline"
-                               onClick={() => sendToSpotter(contato)}
-                               disabled={isSpotterLoading(contato.id)}
-                               className="flex items-center gap-1"
-                             >
-                               {isSpotterLoading(contato.id) ? (
-                                 <div className="animate-spin rounded-full h-3 w-3 border-b border-primary"></div>
-                               ) : (
-                                 <Send className="w-3 h-3" />
-                               )}
-                               <span className="hidden sm:inline">Spotter</span>
-                             </Button>
-                           </TableCell>
+                            <TableCell className="text-sm text-muted-foreground">
+                              {new Date(contato.created_at).toLocaleDateString('pt-BR')}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant={contato.enviado_spotter ? 'default' : 'secondary'}>
+                                {contato.enviado_spotter ? 'Enviado' : 'Pendente'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleSpotterSend(contato)}
+                                disabled={isSpotterLoading(contato.id) || contato.enviado_spotter}
+                                className="flex items-center gap-1"
+                              >
+                                {isSpotterLoading(contato.id) ? (
+                                  <div className="animate-spin rounded-full h-3 w-3 border-b border-primary"></div>
+                                ) : (
+                                  <Send className="w-3 h-3" />
+                                )}
+                                <span className="hidden sm:inline">
+                                  {contato.enviado_spotter ? 'Enviado' : 'Spotter'}
+                                </span>
+                              </Button>
+                            </TableCell>
                          </TableRow>
                       ))}
                     </TableBody>
