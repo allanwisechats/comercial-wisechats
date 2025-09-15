@@ -81,14 +81,29 @@ export const useSpotterApi = () => {
         headers: {
           'Content-Type': 'application/json',
           'token_exact': apiToken,
+          'Accept': 'application/json',
         },
         body: JSON.stringify(leadData),
       });
 
+      console.log('Response status:', createResponse.status);
+      console.log('Response headers:', createResponse.headers);
+
       if (!createResponse.ok) {
         const errorText = await createResponse.text();
         console.error('Erro na criação do lead:', createResponse.status, errorText);
-        throw new Error(`Erro ${createResponse.status}: ${errorText}`);
+        
+        // Try to parse error response as JSON if possible
+        try {
+          const errorData = JSON.parse(errorText);
+          if (errorData.error?.message) {
+            throw new Error(`API Error: ${errorData.error.message}`);
+          }
+        } catch {
+          // If not valid JSON, use the text as is
+        }
+        
+        throw new Error(`Erro HTTP ${createResponse.status}: ${errorText}`);
       }
 
       const createResult = await createResponse.json();
@@ -105,11 +120,16 @@ export const useSpotterApi = () => {
         headers: {
           'Content-Type': 'application/json',
           'token_exact': apiToken,
+          'Accept': 'application/json',
         },
       });
 
+      console.log('Search response status:', searchResponse.status);
+
       if (!searchResponse.ok) {
-        throw new Error(`Erro na busca do lead: ${searchResponse.status}`);
+        const errorText = await searchResponse.text();
+        console.error('Erro na busca do lead:', searchResponse.status, errorText);
+        throw new Error(`Erro na busca do lead: ${searchResponse.status} - ${errorText}`);
       }
 
       const searchResult = await searchResponse.json();
