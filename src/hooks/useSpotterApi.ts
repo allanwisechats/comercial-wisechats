@@ -12,6 +12,9 @@ interface Contato {
   empresa: string | null;
   whatsapp: string | null;
   cidade: string | null;
+  nicho_id: string | null;
+  origem?: string | null;
+  fonte?: 'CASA_DOS_DADOS' | 'LINKEDIN';
 }
 
 interface SpotterResponse {
@@ -80,6 +83,22 @@ export const useSpotterApi = () => {
     setLoading(contato.id, true);
     
     try {
+      // Get nicho name for Industry field
+      let nichoNome = '';
+      if (contato.nicho_id && user) {
+        try {
+          const { data: nicho } = await supabase
+            .from('nichos')
+            .select('nome')
+            .eq('id', contato.nicho_id)
+            .eq('user_id', user.id)
+            .single();
+          nichoNome = nicho?.nome || '';
+        } catch (error) {
+          console.log('Erro ao buscar nicho:', error);
+        }
+      }
+
       // Prepare lead data according to ExactSpotter API documentation
       const leadData = {
         duplicityValidation: false, // Campo no nível superior
@@ -88,7 +107,9 @@ export const useSpotterApi = () => {
           phone: contato.whatsapp?.replace(/\s+/g, '') || '', // Remove espaços do telefone
           website: '', // Pode ser preenchido se disponível
           description: `Contato importado: ${contato.nome || ''} - ${contato.cargo || ''}`.trim(),
-          source: 'Importação Manual' // Origem do lead
+          source: contato.origem || 'Google', // Origem do lead
+          subSource: contato.fonte || 'Fonte', // Fonte do lead
+          Industry: nichoNome || 'Nicho' // Nicho do lead
         }
       };
 
