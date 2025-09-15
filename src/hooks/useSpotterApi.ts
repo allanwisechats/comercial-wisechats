@@ -1,32 +1,7 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-
-interface SpotterLead {
-  name: string;
-  industry: string;
-  source: string;
-  subSource: string;
-  ddiPhone: string;
-  phone: string;
-  city: string;
-  description: string;
-}
-
-interface SpotterRequest {
-  duplicityValidation: boolean;
-  lead: SpotterLead;
-}
-
-interface SpotterContact {
-  email: string;
-  name: string;
-  leadId: number;
-  jobTitle: string;
-  ddiPhone1: string;
-  phone1: string;
-  mainContact: boolean;
-}
+import { useAuth } from '@/hooks/useAuth';
 
 interface Contato {
   id: string;
@@ -36,275 +11,146 @@ interface Contato {
   empresa: string | null;
   whatsapp: string | null;
   cidade: string | null;
-  fonte: 'CASA_DOS_DADOS' | 'LINKEDIN';
-  created_at: string;
-  origem?: string | null;
-  enviado_spotter?: boolean;
-  nichos?: {
-    nome: string;
-  } | null;
 }
 
-const SPOTTER_API_URL = 'https://api.exactspotter.com/v3/LeadsAdd';
-const SPOTTER_LEADS_LIST_URL = 'https://api.exactspotter.com/v3/Leads';
-const SPOTTER_CONTACTS_API_URL = 'https://api.exactspotter.com/v3/personsAdd';
-const SPOTTER_TOKEN = '803be888-0393-46e3-b907-4309bb86de26';
+interface SpotterResponse {
+  success: boolean;
+  message?: string;
+  data?: any;
+}
 
 export const useSpotterApi = () => {
-  const [loadingContacts, setLoadingContacts] = useState<Set<string>>(new Set());
+  const { user } = useAuth();
+  const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>({});
 
-  const formatPhoneNumber = (whatsapp: string | null): { ddiPhone: string; phone: string } => {
-    if (!whatsapp) {
-      return { ddiPhone: '55', phone: '' };
-    }
-
-    // Remove todos os caracteres não numéricos
-    const cleanPhone = whatsapp.replace(/\D/g, '');
-    
-    // Se começar com 55, remove o código do país
-    const phoneWithoutCountry = cleanPhone.startsWith('55') ? cleanPhone.substring(2) : cleanPhone;
-    
-    return {
-      ddiPhone: '55',
-      phone: phoneWithoutCountry
-    };
-  };
-
-  const mapContatoToSpotterLead = (contato: Contato): SpotterLead => {
-    const { ddiPhone, phone } = formatPhoneNumber(contato.whatsapp);
-    
-    // Monta a descrição com informações adicionais
-    const descriptionParts = [];
-    
-    if (contato.cargo) {
-      descriptionParts.push(`Cargo: ${contato.cargo}`);
-    }
-    
-    if (contato.empresa) {
-      descriptionParts.push(`Empresa: ${contato.empresa}`);
-    }
-    
-    if (contato.email) {
-      descriptionParts.push(`Email: ${contato.email}`);
-    }
-    
-    if (contato.created_at) {
-      const dataFormatada = new Date(contato.created_at).toLocaleDateString('pt-BR');
-      descriptionParts.push(`Data de importação: ${dataFormatada}`);
-    }
-
-    return {
-      name: contato.nome || 'Nome não informado',
-      industry: contato.nichos?.nome || '',
-      source: contato.origem || (contato.fonte === 'CASA_DOS_DADOS' ? 'Casa dos Dados' : 'LinkedIn'),
-      subSource: contato.fonte === 'CASA_DOS_DADOS' ? 'Casa dos Dados' : 'LinkedIn',
-      ddiPhone,
-      phone,
-      city: contato.cidade || '',
-      description: descriptionParts.join(' | ')
-    };
-  };
-
-  const mapContatoToSpotterContact = (contato: Contato, leadId: number): SpotterContact => {
-    const { ddiPhone, phone } = formatPhoneNumber(contato.whatsapp);
-    
-    return {
-      email: contato.email || '',
-      name: contato.nome || 'Nome não informado',
-      leadId,
-      jobTitle: contato.cargo || '',
-      ddiPhone1: ddiPhone,
-      phone1: phone,
-      mainContact: true
-    };
-  };
-
-  const sendToSpotter = async (contato: Contato): Promise<boolean> => {
-    const contactId = contato.id;
-    
-    // Evita múltiplos cliques no mesmo contato
-    if (loadingContacts.has(contactId)) {
-      return false;
-    }
-
-    setLoadingContacts(prev => new Set(prev).add(contactId));
+  const getUserApiToken = async (): Promise<string | null> => {
+    if (!user) return null;
 
     try {
-      // Primeira chamada: Criar o lead
-      console.log('=== CONTATO ORIGINAL ===');
-      console.log('Contato:', JSON.stringify(contato, null, 2));
-      console.log('=======================');
-      
-      const spotterLead = mapContatoToSpotterLead(contato);
-      
-      console.log('=== LEAD MAPEADO ===');
-      console.log('SpotterLead:', JSON.stringify(spotterLead, null, 2));
-      console.log('===================');
-      
-      const leadRequestBody: SpotterRequest = {
-        duplicityValidation: true,
-        lead: spotterLead
+      const { data, error } = await supabase
+        .from('user_api_tokens')
+        .select('spotter_token')
+        .eq('user_id', user.id)
+        .single();
+
+      if (error || !data?.spotter_token) {
+        toast.error('Token da API Spotter não configurado. Acesse seu perfil para configurá-lo.');
+        return null;
+      }
+
+      return data.spotter_token;
+    } catch (error) {
+      console.error('Erro ao buscar token da API:', error);
+      toast.error('Erro ao buscar configuração da API');
+      return null;
+    }
+  };
+
+  const setLoading = useCallback((contactId: string, loading: boolean) => {
+    setLoadingStates(prev => ({
+      ...prev,
+      [contactId]: loading
+    }));
+  }, []);
+
+  const isLoading = useCallback((contactId: string) => {
+    return loadingStates[contactId] || false;
+  }, [loadingStates]);
+
+  const sendToSpotter = useCallback(async (contato: Contato): Promise<boolean> => {
+    const apiToken = await getUserApiToken();
+    if (!apiToken) return false;
+
+    setLoading(contato.id, true);
+    
+    try {
+      // First, create the lead
+      const leadData = {
+        lead: contato.empresa || contato.nome || 'Lead sem nome',
+        email: contato.email || '',
+        whatsapp: contato.whatsapp || '',
+        nome: contato.nome || '',
+        cargo: contato.cargo || '',
+        empresa: contato.empresa || ''
       };
 
-      console.log('=== REQUISIÇÃO PARA O SPOTTER ===');
-      console.log('URL:', SPOTTER_API_URL);
-      console.log('Method: POST');
-      console.log('Headers:', {
-        'Content-Type': 'application/json',
-        'token_exact': SPOTTER_TOKEN
-      });
-      console.log('Body:', JSON.stringify(leadRequestBody, null, 2));
-      console.log('================================');
+      console.log('Enviando dados para o Spotter:', leadData);
 
-      const leadResponse = await fetch(SPOTTER_API_URL, {
+      const createResponse = await fetch('https://api.exactspotter.com/v3/Leads', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'token_exact': SPOTTER_TOKEN
+          'token_exact': apiToken,
         },
-        body: JSON.stringify(leadRequestBody)
+        body: JSON.stringify(leadData),
       });
 
-      // Trata resposta da criação do lead (segue mesmo se já existir)
-      let leadCreatedOrExists = false as boolean;
-      let leadResult: any = null;
-      if (!leadResponse.ok) {
-        const errorText = await leadResponse.text();
-        console.error('Resposta de erro da API:', errorText);
-        // Se o lead já existir, seguimos para a etapa de busca do ID
-        try {
-          const errObj = JSON.parse(errorText);
-          const message: string = errObj?.error?.message || '';
-          if (leadResponse.status === 400 && message.toLowerCase().includes('already exists')) {
-            console.warn('Lead já existe. Prosseguindo para buscar o ID e criar o contato.');
-            leadCreatedOrExists = true;
-          } else {
-            throw new Error(`Erro ao criar lead: ${leadResponse.status} - ${leadResponse.statusText}. Resposta: ${errorText}`);
-          }
-        } catch {
-          if (errorText.toLowerCase().includes('already exists')) {
-            console.warn('Lead já existe (texto). Prosseguindo para buscar o ID e criar o contato.');
-            leadCreatedOrExists = true;
-          } else {
-            throw new Error(`Erro ao criar lead: ${leadResponse.status} - ${leadResponse.statusText}. Resposta: ${errorText}`);
-          }
-        }
-      } else {
-        leadResult = await leadResponse.json();
-        console.log('Etapa 1 - Lead criado com sucesso:', leadResult);
-        leadCreatedOrExists = true;
+      if (!createResponse.ok) {
+        const errorText = await createResponse.text();
+        console.error('Erro na criação do lead:', createResponse.status, errorText);
+        throw new Error(`Erro ${createResponse.status}: ${errorText}`);
       }
+
+      const createResult = await createResponse.json();
+      console.log('Lead criado com sucesso:', createResult);
+
+      // Then, search for the created lead to get its ID
+      const nomeDoLead = contato.empresa || contato.nome || 'Lead sem nome';
+      const searchUrl = `https://api.exactspotter.com/v3/Leads?$filter=lead eq '${encodeURIComponent(nomeDoLead)}'`;
       
-      // Segunda chamada: Buscar o lead pelo nome para obter o ID
-      const leadName = spotterLead.name;
-      const url = new URL(SPOTTER_LEADS_LIST_URL);
-      url.search = '';
-      url.searchParams.set('$filter', `lead eq '${leadName}'`);
-      const searchUrl = url.toString();
-      
-      console.log('Etapa 2 - Buscando lead pelo nome:', searchUrl);
-      
+      console.log('Buscando lead criado:', searchUrl);
+
       const searchResponse = await fetch(searchUrl, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
-          'token_exact': SPOTTER_TOKEN
-        }
+          'token_exact': apiToken,
+        },
       });
 
       if (!searchResponse.ok) {
-        throw new Error(`Lead criado, mas houve um erro ao obter o ID para criar o contato. Por favor, crie o contato manualmente no Spotter.`);
+        throw new Error(`Erro na busca do lead: ${searchResponse.status}`);
       }
 
       const searchResult = await searchResponse.json();
-      console.log('Resposta da busca de leads:', searchResult);
-      
-      // Buscar o ID no resultado da busca
-      let leadId: number | null = null;
-      if (Array.isArray(searchResult)) {
-        leadId = searchResult[0]?.id ?? searchResult[0]?.leadId ?? null;
-      } else if (Array.isArray(searchResult?.value) && searchResult.value.length > 0) {
-        const first = searchResult.value[0];
-        leadId = first?.id ?? first?.leadId ?? null;
-      } else if (Array.isArray(searchResult?.data) && searchResult.data.length > 0) {
-        const first = searchResult.data[0];
-        leadId = first?.id ?? first?.leadId ?? null;
+      console.log('Resultado da busca:', searchResult);
+
+      if (!searchResult.value || searchResult.value.length === 0) {
+        throw new Error('Lead não encontrado após criação');
       }
 
-      if (!leadId) {
-        console.error('Lead não encontrado na busca:', searchResult);
-        throw new Error('Lead criado, mas houve um erro ao obter o ID para criar o contato. Por favor, crie o contato manualmente no Spotter.');
-      }
+      // Get the most recent lead (assuming it's the one we just created)
+      const leadEncontrado = searchResult.value[0];
+      const leadId = leadEncontrado.id;
 
-      console.log('Etapa 2 - Lead ID encontrado:', leadId);
-
-      // Terceira chamada: Criar o contato usando o leadId
-      const spotterContact = mapContatoToSpotterContact(contato, leadId);
-      
-      console.log('Etapa 3 - Criando contato com lead ID:', leadId);
-      
-      const contactResponse = await fetch(SPOTTER_CONTACTS_API_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'token_exact': SPOTTER_TOKEN
-        },
-        body: JSON.stringify(spotterContact)
-      });
-
-      if (!contactResponse.ok) {
-        // Lead foi criado, mas contato falhou
-        console.error('Erro na criação do contato:', await contactResponse.text());
-        toast.error('Lead criado, mas houve um erro ao criar o contato. Por favor, crie-o manualmente no Spotter.');
-        
-        // Mesmo assim marcamos como enviado pois o lead foi criado
-        await supabase
+      // Update the contact in Supabase to mark as sent
+      if (user) {
+        const { error: updateError } = await supabase
           .from('contatos')
           .update({ enviado_spotter: true })
-          .eq('id', contactId);
-        
-        return true;
+          .eq('id', contato.id)
+          .eq('user_id', user.id);
+
+        if (updateError) {
+          console.error('Erro ao atualizar contato no Supabase:', updateError);
+        }
       }
 
-      const contactResult = await contactResponse.json();
-      console.log('Etapa 3 - Contato criado com sucesso:', contactResult);
-
-      // Todas as três etapas foram bem-sucedidas
-      await supabase
-        .from('contatos')
-        .update({ enviado_spotter: true })
-        .eq('id', contactId);
-      
-      toast.success('Lead e Contato enviados para o Spotter com sucesso!');
+      toast.success(`Lead "${contato.empresa || contato.nome}" enviado para o Spotter com sucesso!`);
       return true;
-      
+
     } catch (error) {
       console.error('Erro ao enviar para o Spotter:', error);
-      
-      // Verificar se o erro é da etapa de busca do ID
-      if (error instanceof Error && error.message.includes('ID para criar o contato')) {
-        toast.error(error.message);
-      } else {
-        toast.error('Erro ao enviar o lead para o Spotter.');
-      }
-      
+      toast.error(`Erro ao enviar lead: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
       return false;
-      
     } finally {
-      setLoadingContacts(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(contactId);
-        return newSet;
-      });
+      setLoading(contato.id, false);
     }
-  };
-
-  const isLoading = (contactId: string): boolean => {
-    return loadingContacts.has(contactId);
-  };
+  }, [user, setLoading, getUserApiToken]);
 
   return {
     sendToSpotter,
-    isLoading
+    isLoading,
+    getUserApiToken
   };
 };

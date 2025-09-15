@@ -1,4 +1,4 @@
-import { Database, Contact, Target, BarChart3 } from 'lucide-react';
+import { Database, Contact, Target, BarChart3, Users, User } from 'lucide-react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
   Sidebar,
@@ -11,16 +11,26 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from '@/components/ui/sidebar';
+import { useAuth } from '@/hooks/useAuth';
 
-const items = [
+const mainItems = [
   { title: 'Dashboard', url: '/dashboard', icon: BarChart3 },
   { title: 'Extrair Leads', url: '/', icon: Database },
   { title: 'Contatos', url: '/contatos', icon: Contact },
   { title: 'Modelo Spotter', url: '/modelo-spotter', icon: Target },
 ];
 
+const adminItems = [
+  { title: 'Gerenciar Usuários', url: '/admin/users', icon: Users },
+];
+
+const userItems = [
+  { title: 'Perfil', url: '/profile', icon: User },
+];
+
 export function AppSidebar() {
   const { open } = useSidebar();
+  const { isAdmin } = useAuth();
   const location = useLocation();
   const currentPath = location.pathname;
 
@@ -38,7 +48,45 @@ export function AppSidebar() {
           <SidebarGroupLabel>Menu Principal</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {items.map((item) => (
+              {mainItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton asChild>
+                    <NavLink to={item.url} end className={getNavCls}>
+                      <item.icon className="w-4 h-4" />
+                      {open && <span>{item.title}</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        {isAdmin() && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Administração</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {adminItems.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton asChild>
+                      <NavLink to={item.url} end className={getNavCls}>
+                        <item.icon className="w-4 h-4" />
+                        {open && <span>{item.title}</span>}
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+
+        <SidebarGroup>
+          <SidebarGroupLabel>Conta</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {userItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
                     <NavLink to={item.url} end className={getNavCls}>
