@@ -131,7 +131,15 @@ export const useSpotterApi = () => {
 
     try {
       // Primeira chamada: Criar o lead
+      console.log('=== CONTATO ORIGINAL ===');
+      console.log('Contato:', JSON.stringify(contato, null, 2));
+      console.log('=======================');
+      
       const spotterLead = mapContatoToSpotterLead(contato);
+      
+      console.log('=== LEAD MAPEADO ===');
+      console.log('SpotterLead:', JSON.stringify(spotterLead, null, 2));
+      console.log('===================');
       
       const leadRequestBody: SpotterRequest = {
         duplicityValidation: true,
