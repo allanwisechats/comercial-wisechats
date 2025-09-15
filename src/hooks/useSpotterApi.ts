@@ -220,11 +220,15 @@ export const useSpotterApi = () => {
       console.log('Resposta da busca de leads:', searchResult);
       
       // Buscar o ID no resultado da busca
-      let leadId = null;
-      if (searchResult && searchResult.length > 0) {
-        leadId = searchResult[0].id || searchResult[0].leadId;
-      } else if (searchResult && searchResult.data && searchResult.data.length > 0) {
-        leadId = searchResult.data[0].id || searchResult.data[0].leadId;
+      let leadId: number | null = null;
+      if (Array.isArray(searchResult)) {
+        leadId = searchResult[0]?.id ?? searchResult[0]?.leadId ?? null;
+      } else if (Array.isArray(searchResult?.value) && searchResult.value.length > 0) {
+        const first = searchResult.value[0];
+        leadId = first?.id ?? first?.leadId ?? null;
+      } else if (Array.isArray(searchResult?.data) && searchResult.data.length > 0) {
+        const first = searchResult.data[0];
+        leadId = first?.id ?? first?.leadId ?? null;
       }
 
       if (!leadId) {
