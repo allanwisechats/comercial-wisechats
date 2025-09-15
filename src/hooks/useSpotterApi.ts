@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { spotterEndpoints, buildLeadFilterUrl } from '@/lib/spotter';
 
 interface Contato {
   id: string;
@@ -76,7 +77,7 @@ export const useSpotterApi = () => {
 
       console.log('Enviando dados para o Spotter:', leadData);
 
-      const createResponse = await fetch('https://api.exactspotter.com/v3/Leads', {
+      const createResponse = await fetch(spotterEndpoints.leads, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -111,7 +112,7 @@ export const useSpotterApi = () => {
 
       // Then, search for the created lead to get its ID
       const nomeDoLead = contato.empresa || contato.nome || 'Lead sem nome';
-      const searchUrl = `https://api.exactspotter.com/v3/Leads?$filter=lead eq '${encodeURIComponent(nomeDoLead)}'`;
+      const searchUrl = buildLeadFilterUrl(nomeDoLead);
       
       console.log('Buscando lead criado:', searchUrl);
 
