@@ -92,7 +92,7 @@ export const useSpotterApi = () => {
 
       console.log('Enviando dados para o Spotter:', leadData);
 
-      const createResponse = await fetch(spotterEndpoints.leads, {
+      const createResponse = await fetch(spotterEndpoints.leadsAdd, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

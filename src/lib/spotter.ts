@@ -10,4 +10,4 @@ export const spotterEndpoints = {
 };
 
 export const buildLeadFilterUrl = (leadName: string) =>
-  `${spotterEndpoints.leads}?$filter=lead eq '${encodeURIComponent(leadName)}'`;
+  `${spotterEndpoints.leads}?$filter=${encodeURIComponent(`lead eq '${leadName}'`)}`;
