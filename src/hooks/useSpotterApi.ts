@@ -18,6 +18,16 @@ interface SpotterRequest {
   lead: SpotterLead;
 }
 
+interface SpotterContact {
+  email: string;
+  name: string;
+  leadId: number;
+  jobTitle: string;
+  ddiPhone1: string;
+  phone1: string;
+  mainContact: boolean;
+}
+
 interface Contato {
   id: string;
   nome: string | null;
@@ -36,6 +46,7 @@ interface Contato {
 }
 
 const SPOTTER_API_URL = 'https://api.exactspotter.com/v3/LeadsAdd';
+const SPOTTER_CONTACTS_API_URL = 'https://api.exactspotter.com/v3/personsAdd';
 const SPOTTER_TOKEN = '803be888-0393-46e3-b907-4309bb86de26';
 
 export const useSpotterApi = () => {
@@ -93,6 +104,20 @@ export const useSpotterApi = () => {
     };
   };
 
+  const mapContatoToSpotterContact = (contato: Contato, leadId: number): SpotterContact => {
+    const { ddiPhone, phone } = formatPhoneNumber(contato.whatsapp);
+    
+    return {
+      email: contato.email || '',
+      name: contato.nome || 'Nome não informado',
+      leadId,
+      jobTitle: contato.cargo || '',
+      ddiPhone1: ddiPhone,
+      phone1: phone,
+      mainContact: true
+    };
+  };
+
   const sendToSpotter = async (contato: Contato): Promise<boolean> => {
     const contactId = contato.id;
     
@@ -104,40 +129,71 @@ export const useSpotterApi = () => {
     setLoadingContacts(prev => new Set(prev).add(contactId));
 
     try {
+      // Primeira chamada: Criar o lead
       const spotterLead = mapContatoToSpotterLead(contato);
       
-      const requestBody: SpotterRequest = {
+      const leadRequestBody: SpotterRequest = {
         duplicityValidation: true,
         lead: spotterLead
       };
 
-      const response = await fetch(SPOTTER_API_URL, {
+      const leadResponse = await fetch(SPOTTER_API_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'token_exact': SPOTTER_TOKEN
         },
-        body: JSON.stringify(requestBody)
+        body: JSON.stringify(leadRequestBody)
       });
 
-      if (!response.ok) {
-        throw new Error(`Erro na API: ${response.status} - ${response.statusText}`);
+      if (!leadResponse.ok) {
+        throw new Error(`Erro ao criar lead: ${leadResponse.status} - ${leadResponse.statusText}`);
       }
 
-      const result = await response.json();
-      
-      // Marcar o contato como enviado no banco de dados
+      const leadResult = await leadResponse.json();
+      const leadId = leadResult.id || leadResult.leadId;
+
+      if (!leadId) {
+        throw new Error('Lead criado, mas ID não foi retornado pela API');
+      }
+
+      // Segunda chamada: Criar o contato usando o leadId
+      const spotterContact = mapContatoToSpotterContact(contato, leadId);
+
+      const contactResponse = await fetch(SPOTTER_CONTACTS_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'token_exact': SPOTTER_TOKEN
+        },
+        body: JSON.stringify(spotterContact)
+      });
+
+      if (!contactResponse.ok) {
+        // Lead foi criado, mas contato falhou
+        toast.error('Lead criado, mas houve um erro ao criar o contato. Por favor, crie-o manualmente no Spotter.');
+        
+        // Mesmo assim marcamos como enviado pois o lead foi criado
+        await supabase
+          .from('contatos')
+          .update({ enviado_spotter: true })
+          .eq('id', contactId);
+        
+        return true;
+      }
+
+      // Ambas as chamadas foram bem-sucedidas
       await supabase
         .from('contatos')
         .update({ enviado_spotter: true })
         .eq('id', contactId);
       
-      toast.success('Contato enviado para o Spotter com sucesso!');
+      toast.success('Lead e Contato enviados para o Spotter com sucesso!');
       return true;
       
     } catch (error) {
-      console.error('Erro ao enviar contato para o Spotter:', error);
-      toast.error('Erro ao enviar contato. Tente novamente.');
+      console.error('Erro ao enviar para o Spotter:', error);
+      toast.error('Erro ao enviar o lead para o Spotter.');
       return false;
       
     } finally {
