@@ -197,7 +197,7 @@ export const useSpotterApi = () => {
       
       // Segunda chamada: Buscar o lead pelo nome para obter o ID
       const leadName = spotterLead.name;
-      const filterQuery = encodeURIComponent(`name eq '${leadName}'`);
+      const filterQuery = encodeURIComponent(`Name eq '${leadName}'`);
       const searchUrl = `${SPOTTER_LEADS_LIST_URL}?$filter=${filterQuery}`;
       
       console.log('Etapa 2 - Buscando lead pelo nome:', searchUrl);
