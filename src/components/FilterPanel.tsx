@@ -26,6 +26,7 @@ export interface FilterState {
   fontes: string[];
   status: string[];
   cidade: string;
+  tagImportacao: string;
   dataInicio?: Date;
   dataFim?: Date;
 }
@@ -35,11 +36,13 @@ interface FilterPanelProps {
   onFiltersChange: (filters: FilterState) => void;
   nichos: Array<{ id: string; nome: string; }>;
   cidades: string[];
+  tagsImportacao: string[];
 }
 
-export function FilterPanel({ filters, onFiltersChange, nichos, cidades }: FilterPanelProps) {
+export function FilterPanel({ filters, onFiltersChange, nichos, cidades, tagsImportacao }: FilterPanelProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [cidadeSearch, setCidadeSearch] = useState('');
+  const [tagSearch, setTagSearch] = useState('');
 
   const statusOptions = [
     { id: 'enviado', label: 'Enviado' },
@@ -78,10 +81,12 @@ export function FilterPanel({ filters, onFiltersChange, nichos, cidades }: Filte
       fontes: [],
       status: [],
       cidade: '',
+      tagImportacao: '',
       dataInicio: undefined,
       dataFim: undefined,
     });
     setCidadeSearch('');
+    setTagSearch('');
   };
 
   const handleApplyFilters = () => {
@@ -91,6 +96,10 @@ export function FilterPanel({ filters, onFiltersChange, nichos, cidades }: Filte
   const filteredCidades = cidades.filter(cidade => 
     cidade.toLowerCase().includes(cidadeSearch.toLowerCase())
   );
+  
+  const filteredTags = tagsImportacao.filter(tag => 
+    tag.toLowerCase().includes(tagSearch.toLowerCase())
+  );
 
   const getActiveFiltersCount = () => {
     let count = 0;
@@ -98,6 +107,7 @@ export function FilterPanel({ filters, onFiltersChange, nichos, cidades }: Filte
     if (filters.fontes.length > 0) count++;
     if (filters.status.length > 0) count++;
     if (filters.cidade) count++;
+    if (filters.tagImportacao) count++;
     if (filters.dataInicio || filters.dataFim) count++;
     return count;
   };
@@ -245,6 +255,66 @@ export function FilterPanel({ filters, onFiltersChange, nichos, cidades }: Filte
             {filters.cidade && (
               <div className="text-sm text-muted-foreground">
                 Filtrando por: {filters.cidade}
+              </div>
+            )}
+          </div>
+
+          {/* Tag de Importação */}
+          <div className="space-y-3">
+            <Label className="text-sm font-medium">Tag de Importação</Label>
+            <div className="relative">
+              <Input
+                placeholder="Digite uma tag de importação..."
+                value={tagSearch}
+                onChange={(e) => setTagSearch(e.target.value)}
+                onBlur={() => {
+                  if (tagSearch && filteredTags.includes(tagSearch)) {
+                    onFiltersChange({ ...filters, tagImportacao: tagSearch });
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && filteredTags.length > 0) {
+                    const tag = filteredTags[0];
+                    setTagSearch(tag);
+                    onFiltersChange({ ...filters, tagImportacao: tag });
+                  }
+                }}
+              />
+              {tagSearch && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-1 top-1 h-8 w-8 p-0"
+                  onClick={() => {
+                    setTagSearch('');
+                    onFiltersChange({ ...filters, tagImportacao: '' });
+                  }}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
+              {tagSearch && filteredTags.length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-popover border rounded-md shadow-lg z-50 max-h-32 overflow-y-auto">
+                  {filteredTags.slice(0, 10).map((tag) => (
+                    <button
+                      key={tag}
+                      type="button"
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground"
+                      onClick={() => {
+                        setTagSearch(tag);
+                        onFiltersChange({ ...filters, tagImportacao: tag });
+                      }}
+                    >
+                      {tag}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            {filters.tagImportacao && (
+              <div className="text-sm text-muted-foreground">
+                Filtrando por tag: {filters.tagImportacao}
               </div>
             )}
           </div>

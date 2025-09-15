@@ -27,6 +27,7 @@ export type Database = {
           nicho_id: string | null
           nome: string | null
           origem: string | null
+          tag_importacao: string | null
           texto_original: string | null
           updated_at: string
           user_id: string
@@ -44,6 +45,7 @@ export type Database = {
           nicho_id?: string | null
           nome?: string | null
           origem?: string | null
+          tag_importacao?: string | null
           texto_original?: string | null
           updated_at?: string
           user_id: string
@@ -61,6 +63,7 @@ export type Database = {
           nicho_id?: string | null
           nome?: string | null
           origem?: string | null
+          tag_importacao?: string | null
           texto_original?: string | null
           updated_at?: string
           user_id?: string

@@ -37,6 +37,7 @@ export function SaveContactsModal({ open, onOpenChange, contacts, onSave }: Save
   const [cidade, setCidade] = useState('');
   const [nichoId, setNichoId] = useState('');
   const [newNicho, setNewNicho] = useState('');
+  const [tagImportacao, setTagImportacao] = useState('');
   const [nichos, setNichos] = useState<Nicho[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showNewNicho, setShowNewNicho] = useState(false);
@@ -55,13 +56,21 @@ export function SaveContactsModal({ open, onOpenChange, contacts, onSave }: Save
       loadNichos();
       // Reset duplicates info when modal opens
       setDuplicatesInfo({ duplicated: [], unique: [], show: false });
+      // Generate automatic import tag
+      const now = new Date();
+      const formattedDate = now.getFullYear() + '-' + 
+        String(now.getMonth() + 1).padStart(2, '0') + '-' + 
+        String(now.getDate()).padStart(2, '0') + '_' + 
+        String(now.getHours()).padStart(2, '0') + '-' + 
+        String(now.getMinutes()).padStart(2, '0');
+      setTagImportacao(`Importação_${formattedDate}`);
     }
   }, [open]);
 
   // Reset duplicates info when contacts or any relevant field changes
   useEffect(() => {
     setDuplicatesInfo({ duplicated: [], unique: [], show: false });
-  }, [contacts, fonte, origem, cidade, nichoId]);
+  }, [contacts, fonte, origem, cidade, nichoId, tagImportacao]);
 
   const loadNichos = async () => {
     if (!user) return;
@@ -182,7 +191,7 @@ export function SaveContactsModal({ open, onOpenChange, contacts, onSave }: Save
   };
 
   const handleSave = async () => {
-    if (!user || !fonte || !origem || !cidade || !nichoId) {
+    if (!user || !fonte || !origem || !cidade || !nichoId || !tagImportacao.trim()) {
       toast.error('Preencha todos os campos obrigatórios');
       return;
     }
@@ -219,6 +228,7 @@ export function SaveContactsModal({ open, onOpenChange, contacts, onSave }: Save
         nicho_id: nichoId,
         user_id: user.id,
         texto_original: contact.textoOriginal || null,
+        tag_importacao: tagImportacao.trim(),
       }));
 
       // Insert contacts one by one to handle individual errors
@@ -244,7 +254,7 @@ export function SaveContactsModal({ open, onOpenChange, contacts, onSave }: Save
       }
 
       if (successCount > 0) {
-        toast.success(`${successCount} contatos salvos com sucesso!`);
+        toast.success(`${successCount} contatos salvos com sucesso com a tag '${tagImportacao}'!`);
         if (errorCount > 0) {
           toast.warning(`${errorCount} contatos não puderam ser salvos devido a duplicatas ou outros erros.`);
         }
@@ -258,6 +268,7 @@ export function SaveContactsModal({ open, onOpenChange, contacts, onSave }: Save
         setNichoId('');
         setNewNicho('');
         setShowNewNicho(false);
+        setTagImportacao('');
         setDuplicatesInfo({ duplicated: [], unique: [], show: false });
       } else {
         toast.error('Nenhum contato pôde ser salvo. Verifique se há duplicatas.');
@@ -368,6 +379,16 @@ export function SaveContactsModal({ open, onOpenChange, contacts, onSave }: Save
             )}
           </div>
 
+          <div>
+            <Label htmlFor="tagImportacao">Tag de Importação *</Label>
+            <Input
+              id="tagImportacao"
+              placeholder="Digite a tag de importação"
+              value={tagImportacao}
+              onChange={(e) => setTagImportacao(e.target.value)}
+            />
+          </div>
+
           <div className="space-y-2">
             {!duplicatesInfo.show ? (
               <div className="text-sm text-muted-foreground">
@@ -398,7 +419,7 @@ export function SaveContactsModal({ open, onOpenChange, contacts, onSave }: Save
             </Button>
             <Button
               onClick={handleSave}
-              disabled={isLoading || !fonte || !origem || !cidade || !nichoId}
+              disabled={isLoading || !fonte || !origem || !cidade || !nichoId || !tagImportacao.trim()}
             >
               {isLoading 
                 ? 'Analisando...' 

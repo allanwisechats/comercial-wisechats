@@ -55,6 +55,7 @@ interface Contato {
   origem?: string | null;
   texto_original?: string | null;
   enviado_spotter?: boolean;
+  tag_importacao?: string | null;
   nichos?: {
     nome: string;
   };
@@ -72,12 +73,14 @@ const Contatos = () => {
   const [filteredContatos, setFilteredContatos] = useState<Contato[]>([]);
   const [nichos, setNichos] = useState<Nicho[]>([]);
   const [cidades, setCidades] = useState<string[]>([]);
+  const [tagsImportacao, setTagsImportacao] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filters, setFilters] = useState<FilterState>({
     nichos: [],
     fontes: [],
     status: [],
     cidade: '',
+    tagImportacao: '',
     dataInicio: undefined,
     dataFim: undefined,
   });
@@ -97,6 +100,7 @@ const Contatos = () => {
       loadContatos();
       loadNichos();
       loadCidades();
+      loadTagsImportacao();
     }
   }, [user]);
 
@@ -126,6 +130,7 @@ const Contatos = () => {
           origem,
           texto_original,
           enviado_spotter,
+          tag_importacao,
           nichos (
             nome
           )
@@ -182,6 +187,28 @@ const Contatos = () => {
     }
   };
 
+  const loadTagsImportacao = async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('contatos')
+        .select('tag_importacao')
+        .eq('user_id', user.id)
+        .not('tag_importacao', 'is', null);
+
+      if (error) throw error;
+      
+      const uniqueTags = Array.from(new Set(
+        data?.map(item => item.tag_importacao).filter(Boolean) || []
+      )).sort();
+      
+      setTagsImportacao(uniqueTags);
+    } catch (error) {
+      console.error('Erro ao carregar tags de importação:', error);
+    }
+  };
+
   const applyFilters = () => {
     let filtered = [...contatos];
 
@@ -229,6 +256,13 @@ const Contatos = () => {
       );
     }
 
+    // Filter by tag de importação
+    if (filters.tagImportacao.trim()) {
+      filtered = filtered.filter(contato => 
+        contato.tag_importacao?.toLowerCase().includes(filters.tagImportacao.toLowerCase())
+      );
+    }
+
     // Filter by date range
     if (filters.dataInicio || filters.dataFim) {
       filtered = filtered.filter(contato => {
@@ -250,7 +284,7 @@ const Contatos = () => {
     }
 
     const csvContent = [
-      ['#', 'Nome', 'Cargo', 'Email', 'Empresa', 'WhatsApp', 'Cidade', 'Fonte', 'Nicho', 'Data de Criação'],
+      ['#', 'Nome', 'Cargo', 'Email', 'Empresa', 'WhatsApp', 'Cidade', 'Fonte', 'Nicho', 'Tag Importação', 'Data de Criação'],
       ...filteredContatos.map((contato, index) => [
         index + 1,
         contato.nome || '',
@@ -261,6 +295,7 @@ const Contatos = () => {
         contato.cidade || '',
         contato.fonte === 'CASA_DOS_DADOS' ? 'Casa dos Dados' : 'LinkedIn',
         contato.nichos?.nome || '',
+        contato.tag_importacao || '',
         new Date(contato.created_at).toLocaleDateString('pt-BR')
       ])
     ].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
@@ -334,6 +369,7 @@ const Contatos = () => {
       fontes: [],
       status: [],
       cidade: '',
+      tagImportacao: '',
       dataInicio: undefined,
       dataFim: undefined,
     });
@@ -535,6 +571,7 @@ const Contatos = () => {
                 onFiltersChange={setFilters}
                 nichos={nichos}
                 cidades={cidades}
+                tagsImportacao={tagsImportacao}
               />
 
               <Button
@@ -591,9 +628,10 @@ const Contatos = () => {
                          <TableHead>Cargo</TableHead>
                          <TableHead>Email</TableHead>
                          <TableHead>WhatsApp</TableHead>
-                         <TableHead>Fonte</TableHead>
-                         <TableHead>Nicho</TableHead>
-                         <TableHead>Data</TableHead>
+                          <TableHead>Fonte</TableHead>
+                          <TableHead>Nicho</TableHead>
+                          <TableHead>Tag Importação</TableHead>
+                          <TableHead>Data</TableHead>
                          <TableHead className="w-24">Status</TableHead>
                          <TableHead className="w-32">Ações</TableHead>
                        </TableRow>
@@ -627,12 +665,15 @@ const Contatos = () => {
                               {contato.fonte === 'CASA_DOS_DADOS' ? 'Casa dos Dados' : 'LinkedIn'}
                             </Badge>
                           </TableCell>
-                           <TableCell className="text-sm">
-                             {contato.nichos?.nome || '-'}
-                           </TableCell>
-                            <TableCell className="text-sm text-muted-foreground">
-                              {new Date(contato.created_at).toLocaleDateString('pt-BR')}
+                            <TableCell className="text-sm">
+                              {contato.nichos?.nome || '-'}
                             </TableCell>
+                            <TableCell className="text-sm">
+                              {contato.tag_importacao || '-'}
+                            </TableCell>
+                             <TableCell className="text-sm text-muted-foreground">
+                               {new Date(contato.created_at).toLocaleDateString('pt-BR')}
+                             </TableCell>
                             <TableCell>
                               <Badge variant={contato.enviado_spotter ? 'default' : 'secondary'}>
                                 {contato.enviado_spotter ? 'Enviado' : 'Pendente'}
