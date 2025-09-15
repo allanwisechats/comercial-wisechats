@@ -80,19 +80,20 @@ export const useSpotterApi = () => {
     setLoading(contato.id, true);
     
     try {
-      // First, create the lead
+      // Prepare lead data according to ExactSpotter API documentation
       const leadData = {
-        lead: contato.empresa || contato.nome || 'Lead sem nome',
-        email: contato.email || '',
-        whatsapp: contato.whatsapp || '',
-        nome: contato.nome || '',
-        cargo: contato.cargo || '',
-        empresa: contato.empresa || ''
+        name: contato.empresa || contato.nome || 'Lead sem nome', // Campo obrigatório
+        phone: contato.whatsapp?.replace(/\s+/g, '') || '', // Remove espaços do telefone
+        website: '', // Pode ser preenchido se disponível
+        description: `Contato importado: ${contato.nome || ''} - ${contato.cargo || ''}`.trim(),
+        source: 'Importação Manual', // Origem do lead
+        duplicityValidation: false // Permite duplicatas
       };
 
       console.log('Enviando dados para o Spotter:', leadData);
 
-      const createResponse = await fetch(spotterEndpoints.leadsAdd, {
+      // Create lead using correct endpoint
+      const createResponse = await fetch(spotterEndpoints.leads, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -124,40 +125,6 @@ export const useSpotterApi = () => {
 
       const createResult = await createResponse.json();
       console.log('Lead criado com sucesso:', createResult);
-
-      // Then, search for the created lead to get its ID
-      const nomeDoLead = contato.empresa || contato.nome || 'Lead sem nome';
-      const searchUrl = buildLeadFilterUrl(nomeDoLead);
-      
-      console.log('Buscando lead criado:', searchUrl);
-
-      const searchResponse = await fetch(searchUrl, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'token_exact': apiToken,
-          'Accept': 'application/json',
-        },
-      });
-
-      console.log('Search response status:', searchResponse.status);
-
-      if (!searchResponse.ok) {
-        const errorText = await searchResponse.text();
-        console.error('Erro na busca do lead:', searchResponse.status, errorText);
-        throw new Error(`Erro na busca do lead: ${searchResponse.status} - ${errorText}`);
-      }
-
-      const searchResult = await searchResponse.json();
-      console.log('Resultado da busca:', searchResult);
-
-      if (!searchResult.value || searchResult.value.length === 0) {
-        throw new Error('Lead não encontrado após criação');
-      }
-
-      // Get the most recent lead (assuming it's the one we just created)
-      const leadEncontrado = searchResult.value[0];
-      const leadId = leadEncontrado.id;
 
       // Update the contact in Supabase to mark as sent
       if (user) {
