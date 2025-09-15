@@ -46,6 +46,7 @@ interface Contato {
 }
 
 const SPOTTER_API_URL = 'https://api.exactspotter.com/v3/LeadsAdd';
+const SPOTTER_LEADS_LIST_URL = 'https://api.exactspotter.com/v3/Leads';
 const SPOTTER_CONTACTS_API_URL = 'https://api.exactspotter.com/v3/personsAdd';
 const SPOTTER_TOKEN = '803be888-0393-46e3-b907-4309bb86de26';
 
@@ -151,21 +152,49 @@ export const useSpotterApi = () => {
       }
 
       const leadResult = await leadResponse.json();
-      console.log('Resposta da API de Lead:', leadResult);
+      console.log('Etapa 1 - Lead criado com sucesso:', leadResult);
       
-      // Verificar diferentes possíveis propriedades de ID
-      const leadId = leadResult.id || leadResult.leadId || leadResult.data?.id || leadResult.data?.leadId;
+      // Segunda chamada: Buscar o lead recém-criado para obter o ID
+      const leadName = spotterLead.name;
+      const searchUrl = `${SPOTTER_LEADS_LIST_URL}?$filter=lead eq '${encodeURIComponent(leadName)}'`;
+      
+      console.log('Etapa 2 - Buscando lead pelo nome:', searchUrl);
+      
+      const searchResponse = await fetch(searchUrl, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'token_exact': SPOTTER_TOKEN
+        }
+      });
 
-      if (!leadId) {
-        console.error('Estrutura da resposta da API:', leadResult);
-        throw new Error(`Lead criado, mas ID não foi encontrado. Resposta recebida: ${JSON.stringify(leadResult)}`);
+      if (!searchResponse.ok) {
+        throw new Error(`Lead criado, mas houve um erro ao obter o ID para criar o contato. Por favor, crie o contato manualmente no Spotter.`);
       }
 
-      console.log('Lead ID encontrado:', leadId);
+      const searchResult = await searchResponse.json();
+      console.log('Resposta da busca de leads:', searchResult);
+      
+      // Buscar o ID no resultado da busca
+      let leadId = null;
+      if (searchResult && searchResult.length > 0) {
+        leadId = searchResult[0].id || searchResult[0].leadId;
+      } else if (searchResult && searchResult.data && searchResult.data.length > 0) {
+        leadId = searchResult.data[0].id || searchResult.data[0].leadId;
+      }
 
-      // Segunda chamada: Criar o contato usando o leadId
+      if (!leadId) {
+        console.error('Lead não encontrado na busca:', searchResult);
+        throw new Error('Lead criado, mas houve um erro ao obter o ID para criar o contato. Por favor, crie o contato manualmente no Spotter.');
+      }
+
+      console.log('Etapa 2 - Lead ID encontrado:', leadId);
+
+      // Terceira chamada: Criar o contato usando o leadId
       const spotterContact = mapContatoToSpotterContact(contato, leadId);
-
+      
+      console.log('Etapa 3 - Criando contato com lead ID:', leadId);
+      
       const contactResponse = await fetch(SPOTTER_CONTACTS_API_URL, {
         method: 'POST',
         headers: {
@@ -177,6 +206,7 @@ export const useSpotterApi = () => {
 
       if (!contactResponse.ok) {
         // Lead foi criado, mas contato falhou
+        console.error('Erro na criação do contato:', await contactResponse.text());
         toast.error('Lead criado, mas houve um erro ao criar o contato. Por favor, crie-o manualmente no Spotter.');
         
         // Mesmo assim marcamos como enviado pois o lead foi criado
@@ -188,7 +218,10 @@ export const useSpotterApi = () => {
         return true;
       }
 
-      // Ambas as chamadas foram bem-sucedidas
+      const contactResult = await contactResponse.json();
+      console.log('Etapa 3 - Contato criado com sucesso:', contactResult);
+
+      // Todas as três etapas foram bem-sucedidas
       await supabase
         .from('contatos')
         .update({ enviado_spotter: true })
@@ -199,7 +232,14 @@ export const useSpotterApi = () => {
       
     } catch (error) {
       console.error('Erro ao enviar para o Spotter:', error);
-      toast.error('Erro ao enviar o lead para o Spotter.');
+      
+      // Verificar se o erro é da etapa de busca do ID
+      if (error instanceof Error && error.message.includes('ID para criar o contato')) {
+        toast.error(error.message);
+      } else {
+        toast.error('Erro ao enviar o lead para o Spotter.');
+      }
+      
       return false;
       
     } finally {
