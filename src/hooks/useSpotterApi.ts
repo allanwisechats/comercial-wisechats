@@ -165,18 +165,40 @@ export const useSpotterApi = () => {
         body: JSON.stringify(leadRequestBody)
       });
 
+      // Trata resposta da criação do lead (segue mesmo se já existir)
+      let leadCreatedOrExists = false as boolean;
+      let leadResult: any = null;
       if (!leadResponse.ok) {
         const errorText = await leadResponse.text();
         console.error('Resposta de erro da API:', errorText);
-        throw new Error(`Erro ao criar lead: ${leadResponse.status} - ${leadResponse.statusText}. Resposta: ${errorText}`);
+        // Se o lead já existir, seguimos para a etapa de busca do ID
+        try {
+          const errObj = JSON.parse(errorText);
+          const message: string = errObj?.error?.message || '';
+          if (leadResponse.status === 400 && message.toLowerCase().includes('already exists')) {
+            console.warn('Lead já existe. Prosseguindo para buscar o ID e criar o contato.');
+            leadCreatedOrExists = true;
+          } else {
+            throw new Error(`Erro ao criar lead: ${leadResponse.status} - ${leadResponse.statusText}. Resposta: ${errorText}`);
+          }
+        } catch {
+          if (errorText.toLowerCase().includes('already exists')) {
+            console.warn('Lead já existe (texto). Prosseguindo para buscar o ID e criar o contato.');
+            leadCreatedOrExists = true;
+          } else {
+            throw new Error(`Erro ao criar lead: ${leadResponse.status} - ${leadResponse.statusText}. Resposta: ${errorText}`);
+          }
+        }
+      } else {
+        leadResult = await leadResponse.json();
+        console.log('Etapa 1 - Lead criado com sucesso:', leadResult);
+        leadCreatedOrExists = true;
       }
-
-      const leadResult = await leadResponse.json();
-      console.log('Etapa 1 - Lead criado com sucesso:', leadResult);
       
-      // Segunda chamada: Buscar o lead recém-criado para obter o ID
+      // Segunda chamada: Buscar o lead pelo nome para obter o ID
       const leadName = spotterLead.name;
-      const searchUrl = `${SPOTTER_LEADS_LIST_URL}?$filter=lead eq '${encodeURIComponent(leadName)}'`;
+      const filterQuery = encodeURIComponent(`name eq '${leadName}'`);
+      const searchUrl = `${SPOTTER_LEADS_LIST_URL}?$filter=${filterQuery}`;
       
       console.log('Etapa 2 - Buscando lead pelo nome:', searchUrl);
       
