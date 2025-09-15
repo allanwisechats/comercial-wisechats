@@ -93,7 +93,7 @@ export const useSpotterApi = () => {
       console.log('Enviando dados para o Spotter:', leadData);
 
       // Create lead using correct endpoint
-      const createResponse = await fetch(spotterEndpoints.leads, {
+      const createResponse = await fetch(spotterEndpoints.leadsAdd, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -151,8 +151,40 @@ export const useSpotterApi = () => {
     }
   }, [user, setLoading, getUserApiToken]);
 
+  const findLeads = useCallback(async (leadName: string) => {
+    const apiToken = await getUserApiToken();
+    if (!apiToken) {
+      return { success: false, message: 'Token não configurado', data: null } as SpotterResponse;
+    }
+
+    const url = buildLeadFilterUrl(leadName);
+    try {
+      const res = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'token_exact': apiToken,
+          'Accept': 'application/json',
+        },
+      });
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(`Erro HTTP ${res.status}: ${errorText}`);
+      }
+
+      const data = await res.json();
+      return { success: true, data } as SpotterResponse;
+    } catch (err) {
+      console.error('Erro ao buscar leads:', err);
+      toast.error(`Erro ao buscar leads: ${err instanceof Error ? err.message : 'Erro desconhecido'}`);
+      return { success: false, message: 'Erro na busca', data: null } as SpotterResponse;
+    }
+  }, [getUserApiToken]);
+
   return {
     sendToSpotter,
+    findLeads,
     isLoading,
     getUserApiToken
   };

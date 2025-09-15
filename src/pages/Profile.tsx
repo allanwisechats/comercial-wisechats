@@ -93,20 +93,29 @@ const Profile = () => {
       console.log('Salvando token para usuário:', user.id);
       console.log('Token sendo salvo:', spotterToken.substring(0, 10) + '...');
 
-      // Update or insert API token
-      const { error } = await supabase
+      // Tenta atualizar o token existente do usuário
+      const { data: updatedRows, error: updateError } = await supabase
         .from('user_api_tokens')
-        .upsert({
-          user_id: user.id,
-          spotter_token: spotterToken
-        }, {
-          onConflict: 'user_id'
-        });
+        .update({ spotter_token: spotterToken })
+        .eq('user_id', user.id)
+        .select('id');
 
-      if (error) {
-        console.error('Erro do Supabase ao salvar token:', error);
-        throw error;
+      if (updateError) {
+        console.error('Erro ao atualizar token:', updateError);
+        throw updateError;
       }
+
+      // Se nenhuma linha foi atualizada, insere um novo registro
+      if (!updatedRows || updatedRows.length === 0) {
+        const { error: insertError } = await supabase
+          .from('user_api_tokens')
+          .insert({ user_id: user.id, spotter_token: spotterToken });
+        if (insertError) {
+          console.error('Erro ao inserir token:', insertError);
+          throw insertError;
+        }
+      }
+
 
       console.log('Token salvo com sucesso no banco');
       toast.success('Token da API salvo com sucesso!');
