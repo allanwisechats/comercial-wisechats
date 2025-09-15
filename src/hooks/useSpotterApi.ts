@@ -128,6 +128,54 @@ export const useSpotterApi = () => {
       const createResult = await createResponse.json();
       console.log('Lead criado com sucesso:', createResult);
 
+      // 2) Buscar o Lead criado para obter o ID
+      const leadName = leadData.lead.name;
+      const leadsUrl = buildLeadFilterUrl(leadName);
+      console.log('Buscando lead criado para obter ID:', { leadName, leadsUrl });
+      const leadsRes = await fetch(leadsUrl, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'token_exact': apiToken,
+          'Accept': 'application/json',
+        },
+      });
+      if (!leadsRes.ok) {
+        const errorText = await leadsRes.text();
+        throw new Error(`Erro ao buscar lead recém-criado: HTTP ${leadsRes.status}: ${errorText}`);
+      }
+      const leadsData = await leadsRes.json();
+      const leadId = Array.isArray(leadsData?.value) && leadsData.value.length > 0 ? leadsData.value[0].id : null;
+      if (!leadId) {
+        throw new Error('Lead criado, mas ID não encontrado na busca.');
+      }
+
+      // 3) Criar o contato (personsAdd) usando o ID do lead
+      const personPayload = {
+        leadId,
+        name: contato.nome || leadName,
+        email: contato.email || '',
+        phone: contato.whatsapp?.replace(/\s+/g, '') || '',
+        position: contato.cargo || '',
+        mainContact: true,
+      };
+      console.log('Criando contato no Spotter:', personPayload);
+      const personRes = await fetch(spotterEndpoints.personsAdd, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'token_exact': apiToken,
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify(personPayload),
+      });
+      if (!personRes.ok) {
+        const errorText = await personRes.text();
+        throw new Error(`Erro ao criar contato: HTTP ${personRes.status}: ${errorText}`);
+      }
+      const personResult = await personRes.json();
+      console.log('Contato criado com sucesso:', personResult);
+
       // Update the contact in Supabase to mark as sent
       if (user) {
         const { error: updateError } = await supabase
@@ -141,7 +189,7 @@ export const useSpotterApi = () => {
         }
       }
 
-      toast.success(`Lead "${contato.empresa || contato.nome}" enviado para o Spotter com sucesso!`);
+      toast.success(`Lead e contato de "${contato.empresa || contato.nome}" enviados ao Spotter com sucesso!`);
       return true;
 
     } catch (error) {
