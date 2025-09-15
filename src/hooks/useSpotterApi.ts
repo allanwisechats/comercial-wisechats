@@ -92,7 +92,7 @@ export const useSpotterApi = () => {
             .select('nome')
             .eq('id', contato.nicho_id)
             .eq('user_id', user.id)
-            .single();
+            .maybeSingle();
           nichoNome = nicho?.nome || '';
         } catch (error) {
           console.log('Erro ao buscar nicho:', error);
@@ -109,7 +109,7 @@ export const useSpotterApi = () => {
           description: `Contato importado: ${contato.nome || ''} - ${contato.cargo || ''}`.trim(),
           source: contato.origem || 'Google', // Origem do lead
           subSource: contato.fonte || 'Fonte', // Fonte do lead
-          Industry: nichoNome || 'Nicho' // Nicho do lead
+          industry: nichoNome || 'Nicho' // Nicho do lead
         }
       };
 
