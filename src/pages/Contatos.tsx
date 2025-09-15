@@ -28,6 +28,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useSpotterApi } from '@/hooks/useSpotterApi';
 import { ContactDetailsModal } from '@/components/ContactDetailsModal';
 import { BulkActionsBar } from '@/components/BulkActionsBar';
+import { BulkSendReportModal } from '@/components/BulkSendReportModal';
 import { FilterPanel, FilterState } from '@/components/FilterPanel';
 import {
   AlertDialog,
@@ -93,6 +94,12 @@ const Contatos = () => {
   const [selectedContacts, setSelectedContacts] = useState<string[]>([]);
   const [isBulkDeleteDialogOpen, setIsBulkDeleteDialogOpen] = useState(false);
   const [isBulkProcessing, setIsBulkProcessing] = useState(false);
+  const [bulkSendReportOpen, setBulkSendReportOpen] = useState(false);
+  const [bulkSendResult, setBulkSendResult] = useState<{
+    total: number;
+    successes: Contato[];
+    failures: { contact: Contato; error: string }[];
+  } | null>(null);
   const itemsPerPage = 50;
 
   useEffect(() => {
@@ -433,40 +440,56 @@ const Contatos = () => {
       return;
     }
 
-    let successCount = 0;
-    const batchSize = 5; // Process in batches to avoid overwhelming the API
-
-    for (let i = 0; i < contactsToSend.length; i += batchSize) {
-      const batch = contactsToSend.slice(i, i + batchSize);
-      const batchPromises = batch.map(async (contato) => {
+    // Create promises for all contacts
+    const promises = contactsToSend.map(async (contato) => {
+      try {
         const success = await sendToSpotter(contato);
-        if (success) {
-          successCount++;
-          // Update local state
-          setContatos(prevContatos => 
-            prevContatos.map(c => 
-              c.id === contato.id ? { ...c, enviado_spotter: true } : c
-            )
-          );
+        if (!success) {
+          throw new Error('Falha no envio para o Spotter');
         }
-        return success;
-      });
+        return { contact: contato, success: true };
+      } catch (error) {
+        throw { contact: contato, error: error instanceof Error ? error.message : 'Erro desconhecido' };
+      }
+    });
 
-      await Promise.all(batchPromises);
-      
-      // Show progress
-      toast.success(`Enviando contatos: ${Math.min(i + batchSize, contactsToSend.length)} de ${contactsToSend.length}`);
+    // Execute all promises and collect results
+    const results = await Promise.allSettled(promises);
+    
+    const successes: typeof contactsToSend = [];
+    const failures: { contact: typeof contactsToSend[0]; error: string }[] = [];
+
+    results.forEach((result, index) => {
+      if (result.status === 'fulfilled') {
+        successes.push(result.value.contact);
+      } else {
+        const failure = result.reason;
+        failures.push({
+          contact: failure.contact || contactsToSend[index],
+          error: failure.error || 'Erro desconhecido'
+        });
+      }
+    });
+
+    // Update local state for successful sends
+    if (successes.length > 0) {
+      setContatos(prevContatos => 
+        prevContatos.map(c => 
+          successes.some(s => s.id === c.id) ? { ...c, enviado_spotter: true } : c
+        )
+      );
     }
 
     setSelectedContacts([]);
     setIsBulkProcessing(false);
-    
-    if (successCount > 0) {
-      toast.success(`${successCount} contatos enviados ao Spotter com sucesso!`);
-    }
-    if (successCount < contactsToSend.length) {
-      toast.error(`${contactsToSend.length - successCount} contatos falharam ao enviar`);
-    }
+
+    // Show detailed report modal
+    setBulkSendResult({
+      total: contactsToSend.length,
+      successes,
+      failures
+    });
+    setBulkSendReportOpen(true);
   };
 
   const clearSelection = () => {
@@ -806,6 +829,12 @@ const Contatos = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <BulkSendReportModal
+        open={bulkSendReportOpen}
+        onOpenChange={setBulkSendReportOpen}
+        result={bulkSendResult}
+      />
     </div>
   );
 };
