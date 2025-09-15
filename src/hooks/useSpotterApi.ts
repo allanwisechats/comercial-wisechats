@@ -138,6 +138,16 @@ export const useSpotterApi = () => {
         lead: spotterLead
       };
 
+      console.log('=== REQUISIÇÃO PARA O SPOTTER ===');
+      console.log('URL:', SPOTTER_API_URL);
+      console.log('Method: POST');
+      console.log('Headers:', {
+        'Content-Type': 'application/json',
+        'token_exact': SPOTTER_TOKEN
+      });
+      console.log('Body:', JSON.stringify(leadRequestBody, null, 2));
+      console.log('================================');
+
       const leadResponse = await fetch(SPOTTER_API_URL, {
         method: 'POST',
         headers: {
@@ -148,7 +158,9 @@ export const useSpotterApi = () => {
       });
 
       if (!leadResponse.ok) {
-        throw new Error(`Erro ao criar lead: ${leadResponse.status} - ${leadResponse.statusText}`);
+        const errorText = await leadResponse.text();
+        console.error('Resposta de erro da API:', errorText);
+        throw new Error(`Erro ao criar lead: ${leadResponse.status} - ${leadResponse.statusText}. Resposta: ${errorText}`);
       }
 
       const leadResult = await leadResponse.json();
