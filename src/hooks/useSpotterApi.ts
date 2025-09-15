@@ -82,12 +82,14 @@ export const useSpotterApi = () => {
     try {
       // Prepare lead data according to ExactSpotter API documentation
       const leadData = {
-        name: contato.empresa || contato.nome || 'Lead sem nome', // Campo obrigatório
-        phone: contato.whatsapp?.replace(/\s+/g, '') || '', // Remove espaços do telefone
-        website: '', // Pode ser preenchido se disponível
-        description: `Contato importado: ${contato.nome || ''} - ${contato.cargo || ''}`.trim(),
-        source: 'Importação Manual', // Origem do lead
-        duplicityValidation: false // Permite duplicatas
+        duplicityValidation: false, // Campo no nível superior
+        lead: {
+          name: contato.empresa || contato.nome || 'Lead sem nome', // Campo obrigatório
+          phone: contato.whatsapp?.replace(/\s+/g, '') || '', // Remove espaços do telefone
+          website: '', // Pode ser preenchido se disponível
+          description: `Contato importado: ${contato.nome || ''} - ${contato.cargo || ''}`.trim(),
+          source: 'Importação Manual' // Origem do lead
+        }
       };
 
       console.log('Enviando dados para o Spotter:', leadData);
