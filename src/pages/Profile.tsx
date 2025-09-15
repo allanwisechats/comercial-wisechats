@@ -90,6 +90,9 @@ const Profile = () => {
     try {
       setIsSaving(true);
 
+      console.log('Salvando token para usuário:', user.id);
+      console.log('Token sendo salvo:', spotterToken.substring(0, 10) + '...');
+
       // Update or insert API token
       const { error } = await supabase
         .from('user_api_tokens')
@@ -100,8 +103,12 @@ const Profile = () => {
           onConflict: 'user_id'
         });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Erro do Supabase ao salvar token:', error);
+        throw error;
+      }
 
+      console.log('Token salvo com sucesso no banco');
       toast.success('Token da API salvo com sucesso!');
     } catch (error) {
       console.error('Erro ao salvar token:', error);

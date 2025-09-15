@@ -28,17 +28,32 @@ export const useSpotterApi = () => {
     if (!user) return null;
 
     try {
+      console.log('Buscando token da API para usuário:', user.id);
+      
       const { data, error } = await supabase
         .from('user_api_tokens')
         .select('spotter_token')
         .eq('user_id', user.id)
         .single();
 
-      if (error || !data?.spotter_token) {
+      console.log('Resultado da busca do token:', { data, error });
+
+      if (error) {
+        if (error.code === 'PGRST116') {
+          console.log('Nenhum token encontrado para o usuário');
+          toast.error('Token da API Spotter não configurado. Acesse seu perfil para configurá-lo.');
+          return null;
+        }
+        throw error;
+      }
+
+      if (!data?.spotter_token) {
+        console.log('Token existe mas está vazio');
         toast.error('Token da API Spotter não configurado. Acesse seu perfil para configurá-lo.');
         return null;
       }
 
+      console.log('Token encontrado:', data.spotter_token.substring(0, 10) + '...');
       return data.spotter_token;
     } catch (error) {
       console.error('Erro ao buscar token da API:', error);
