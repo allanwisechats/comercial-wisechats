@@ -10,7 +10,6 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -22,19 +21,14 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from '@/components/ui/pagination';
-import { Search, Download, Filter, Send, Eye, Trash2, MoreHorizontal } from 'lucide-react';
+import { Search, Download, Send, Eye, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useSpotterApi } from '@/hooks/useSpotterApi';
 import { ContactDetailsModal } from '@/components/ContactDetailsModal';
 import { BulkActionsBar } from '@/components/BulkActionsBar';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { FilterPanel, FilterState } from '@/components/FilterPanel';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -77,9 +71,16 @@ const Contatos = () => {
   const [contatos, setContatos] = useState<Contato[]>([]);
   const [filteredContatos, setFilteredContatos] = useState<Contato[]>([]);
   const [nichos, setNichos] = useState<Nicho[]>([]);
+  const [cidades, setCidades] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedNichos, setSelectedNichos] = useState<string[]>([]);
-  const [selectedFonte, setSelectedFonte] = useState('all');
+  const [filters, setFilters] = useState<FilterState>({
+    nichos: [],
+    fontes: [],
+    status: [],
+    cidade: '',
+    dataInicio: undefined,
+    dataFim: undefined,
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedContact, setSelectedContact] = useState<Contato | null>(null);
@@ -95,12 +96,13 @@ const Contatos = () => {
     if (user) {
       loadContatos();
       loadNichos();
+      loadCidades();
     }
   }, [user]);
 
   useEffect(() => {
     applyFilters();
-  }, [contatos, searchTerm, selectedNichos, selectedFonte]);
+  }, [contatos, searchTerm, filters]);
 
   const loadContatos = async () => {
     if (!user) return;
@@ -158,6 +160,28 @@ const Contatos = () => {
     }
   };
 
+  const loadCidades = async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('contatos')
+        .select('cidade')
+        .eq('user_id', user.id)
+        .not('cidade', 'is', null);
+
+      if (error) throw error;
+      
+      const uniqueCidades = Array.from(new Set(
+        data?.map(item => item.cidade).filter(Boolean) || []
+      )).sort();
+      
+      setCidades(uniqueCidades);
+    } catch (error) {
+      console.error('Erro ao carregar cidades:', error);
+    }
+  };
+
   const applyFilters = () => {
     let filtered = [...contatos];
 
@@ -174,15 +198,45 @@ const Contatos = () => {
     }
 
     // Filter by nichos
-    if (selectedNichos.length > 0) {
+    if (filters.nichos.length > 0) {
       filtered = filtered.filter(contato => 
-        selectedNichos.includes(contato.nicho_id || '')
+        filters.nichos.includes(contato.nicho_id || '')
       );
     }
 
-    // Filter by fonte
-    if (selectedFonte && selectedFonte !== 'all') {
-      filtered = filtered.filter(contato => contato.fonte === selectedFonte);
+    // Filter by fontes
+    if (filters.fontes.length > 0) {
+      filtered = filtered.filter(contato => 
+        filters.fontes.includes(contato.fonte)
+      );
+    }
+
+    // Filter by status
+    if (filters.status.length > 0) {
+      filtered = filtered.filter(contato => {
+        const isEnviado = contato.enviado_spotter;
+        return filters.status.some(status => 
+          (status === 'enviado' && isEnviado) || 
+          (status === 'pendente' && !isEnviado)
+        );
+      });
+    }
+
+    // Filter by cidade
+    if (filters.cidade.trim()) {
+      filtered = filtered.filter(contato => 
+        contato.cidade?.toLowerCase().includes(filters.cidade.toLowerCase())
+      );
+    }
+
+    // Filter by date range
+    if (filters.dataInicio || filters.dataFim) {
+      filtered = filtered.filter(contato => {
+        const contatoDate = new Date(contato.created_at);
+        const isAfterStart = !filters.dataInicio || contatoDate >= filters.dataInicio;
+        const isBeforeEnd = !filters.dataFim || contatoDate <= filters.dataFim;
+        return isAfterStart && isBeforeEnd;
+      });
     }
 
     setFilteredContatos(filtered);
@@ -275,8 +329,14 @@ const Contatos = () => {
 
   const clearFilters = () => {
     setSearchTerm('');
-    setSelectedNichos([]);
-    setSelectedFonte('all');
+    setFilters({
+      nichos: [],
+      fontes: [],
+      status: [],
+      cidade: '',
+      dataInicio: undefined,
+      dataFim: undefined,
+    });
   };
 
   // Bulk actions
@@ -470,63 +530,12 @@ const Contatos = () => {
                 />
               </div>
               
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="w-48 justify-between">
-                    {selectedNichos.length === 0 
-                      ? "Selecionar nichos"
-                      : selectedNichos.length === 1
-                      ? nichos.find(n => n.id === selectedNichos[0])?.nome
-                      : `${selectedNichos.length} nichos selecionados`
-                    }
-                    <MoreHorizontal className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-48" align="start">
-                  {nichos.map((nicho) => (
-                    <DropdownMenuItem
-                      key={nicho.id}
-                      onClick={() => {
-                        setSelectedNichos(prev => 
-                          prev.includes(nicho.id)
-                            ? prev.filter(id => id !== nicho.id)
-                            : [...prev, nicho.id]
-                        );
-                      }}
-                      className="flex items-center gap-2"
-                    >
-                      <div className={`w-3 h-3 border rounded-sm ${
-                        selectedNichos.includes(nicho.id) 
-                          ? 'bg-primary border-primary' 
-                          : 'border-muted-foreground'
-                      }`}>
-                        {selectedNichos.includes(nicho.id) && (
-                          <div className="w-full h-full bg-primary-foreground rounded-sm scale-50" />
-                        )}
-                      </div>
-                      {nicho.nome}
-                    </DropdownMenuItem>
-                  ))}
-                  {selectedNichos.length > 0 && (
-                    <>
-                      <DropdownMenuItem className="border-t" onClick={() => setSelectedNichos([])}>
-                        Limpar seleção
-                      </DropdownMenuItem>
-                    </>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
-
-              <Select value={selectedFonte} onValueChange={setSelectedFonte}>
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Filtrar por fonte" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas as fontes</SelectItem>
-                  <SelectItem value="CASA_DOS_DADOS">Casa dos Dados</SelectItem>
-                  <SelectItem value="LINKEDIN">LinkedIn</SelectItem>
-                </SelectContent>
-              </Select>
+              <FilterPanel
+                filters={filters}
+                onFiltersChange={setFilters}
+                nichos={nichos}
+                cidades={cidades}
+              />
 
               <Button
                 variant="outline"
@@ -534,8 +543,7 @@ const Contatos = () => {
                 onClick={clearFilters}
                 className="flex items-center gap-2"
               >
-                <Filter className="w-4 h-4" />
-                Limpar
+                Limpar Tudo
               </Button>
             </div>
 
